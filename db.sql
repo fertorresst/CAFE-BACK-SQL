@@ -101,6 +101,47 @@ CREATE TABLE collectives (
     ON UPDATE CASCADE
 );
 
+-- Crear tabla contact para gestión de contactos administrativos
+CREATE TABLE contact (
+    con_id INT NOT NULL AUTO_INCREMENT,
+    con_user_id INT NOT NULL,
+    con_admin_id INT NOT NULL,
+    con_period_id INT NOT NULL,
+    con_activity_id INT,
+    con_collective_id INT,
+    con_description TEXT NOT NULL,
+    con_status ENUM('pending', 'in_progress', 'resolved', 'cancelled') NOT NULL DEFAULT 'pending',
+    con_created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    con_updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (con_id),
+    
+    -- Relaciones con otras tablas
+    CONSTRAINT fk_contact_user FOREIGN KEY (con_user_id) 
+    REFERENCES users(use_id) 
+    ON DELETE RESTRICT 
+    ON UPDATE CASCADE,
+    
+    CONSTRAINT fk_contact_admin FOREIGN KEY (con_admin_id) 
+    REFERENCES admins(adm_id) 
+    ON DELETE RESTRICT 
+    ON UPDATE CASCADE,
+    
+    CONSTRAINT fk_contact_period FOREIGN KEY (con_period_id) 
+    REFERENCES periods(per_id) 
+    ON DELETE RESTRICT 
+    ON UPDATE CASCADE,
+    
+    CONSTRAINT fk_contact_activity FOREIGN KEY (con_activity_id) 
+    REFERENCES activities(act_id) 
+    ON DELETE CASCADE
+    ON UPDATE CASCADE,
+
+    CONSTRAINT fk_contact_collective FOREIGN KEY (con_collective_id)
+    REFERENCES collectives(col_id)
+    ON DELETE CASCADE
+    ON UPDATE CASCADE
+);
+
 -- Indices para optimizar búsquedas frecuentes
 CREATE INDEX idx_use_nua ON users(use_nua);
 CREATE INDEX idx_use_email ON users(use_email);
@@ -113,6 +154,10 @@ CREATE INDEX idx_col_user ON collectives(col_user_id);
 CREATE INDEX idx_per_status ON periods(per_status);
 CREATE INDEX idx_act_status ON activities(act_status);
 CREATE INDEX idx_col_status ON collectives(col_status);
+CREATE INDEX idx_contact_user ON contact(con_user_id);
+CREATE INDEX idx_contact_admin ON contact(con_admin_id);
+CREATE INDEX idx_contact_period ON contact(con_period_id);
+CREATE INDEX idx_contact_status ON contact(con_status);
 
 -- Restricciones UNIQUE
 ALTER TABLE users ADD CONSTRAINT unique_use_nua UNIQUE (use_nua);
@@ -125,6 +170,30 @@ ALTER TABLE periods ADD CONSTRAINT chk_period_dates CHECK (per_date_start < per_
 ALTER TABLE activities ADD CONSTRAINT chk_activity_dates CHECK (act_date_start <= act_date_end);
 ALTER TABLE activities ADD CONSTRAINT chk_activity_hours CHECK (act_hours > 0);
 ALTER TABLE collectives ADD CONSTRAINT chk_collective_hours CHECK (col_hours > 0);
+
+-- Crear trigger para verificar antes de insertar
+DELIMITER //
+CREATE TRIGGER check_contact_insert BEFORE INSERT ON contact
+FOR EACH ROW
+BEGIN
+    IF NEW.con_activity_id IS NOT NULL AND NEW.con_collective_id IS NOT NULL THEN
+        SIGNAL SQLSTATE '45000' 
+        SET MESSAGE_TEXT = 'Un contacto solo puede estar asociado a una actividad O a un colectivo, pero no a ambos';
+    END IF;
+END//
+DELIMITER ;
+
+-- Crear trigger para verificar antes de actualizar
+DELIMITER //
+CREATE TRIGGER check_contact_update BEFORE UPDATE ON contact
+FOR EACH ROW
+BEGIN
+    IF NEW.con_activity_id IS NOT NULL AND NEW.con_collective_id IS NOT NULL THEN
+        SIGNAL SQLSTATE '45000' 
+        SET MESSAGE_TEXT = 'Un contacto solo puede estar asociado a una actividad O a un colectivo, pero no a ambos';
+    END IF;
+END//
+DELIMITER ;
 
 -- Script para insertar datos de prueba en la base de datos proyecto_cafe
 
@@ -178,3 +247,11 @@ INSERT INTO collectives (col_event, col_institution, col_place, col_hours, col_d
 ('Foro de Innovación Tecnológica', 'Centro de Tecnología Educativa', 'Centro de Congresos', 7, '2023-09-25', 'FIT/2023-089', 'formato_firmas_fit.pdf', '{"registro": "asistentes_foro.pdf", "presentaciones": "ponencias.zip"}', 'fci', 'pending', 4, 4),
 ('Festival Cultural Universitario', 'Departamento de Extensión Cultural', 'Plaza Central', 10, '2023-10-15', 'FCU/2023-103', 'formato_firmas_fcu.pdf', '{"programa": "programa_actividades.pdf", "fotos": ["festival1.jpg", "festival2.jpg"]}', 'ac', 'approval', 5, 4),
 ('Simposio de Investigación Educativa', 'Instituto de Investigación', 'Auditorio 2', 12, '2023-11-10', 'SIE/2023-128', 'formato_firmas_sie.pdf', '{"memoria": "memoria_simposio.pdf", "ponencias": "ponencias_simposio.zip"}', 'cee', 'approval', 6, 4);
+
+-- Datos de ejemplo para la tabla contact
+INSERT INTO contact (con_user_id, con_admin_id, con_period_id, con_activity_id, con_collective_id, con_description, con_status) VALUES
+(3, 1, 1, 3, NULL, 'El estudiante necesita asesoría adicional sobre los requisitos del seminario', 'pending'),
+(6, 2, 4, 6, NULL, 'Revisar documentación incompleta del workshop', 'in_progress'),
+(4, 3, 1, NULL, 4, 'Solicitud de extensión para entrega de evidencias', 'resolved'),
+(2, 1, 1, NULL, 3, 'Dudas sobre el proceso de validación de horas', 'pending'),
+(5, 4, 4, 5, NULL, 'Incongruencias en la documentación presentada', 'in_progress');
