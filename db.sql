@@ -3,11 +3,12 @@ USE proyecto_cafe;
 
 CREATE TABLE admins (
     adm_id INT NOT NULL AUTO_INCREMENT,
-    adm_correo VARCHAR(100) NOT NULL,
+    adm_email VARCHAR(100) NOT NULL,
     adm_password VARCHAR(255) NOT NULL,
     adm_name VARCHAR(50) NOT NULL,
     adm_last_name VARCHAR(50) NOT NULL,
     adm_second_last_name VARCHAR(50),
+    adm_phone VARCHAR(15) NOT NULL,
     adm_created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     adm_updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (adm_id)
@@ -24,7 +25,10 @@ CREATE TABLE periods (
     per_created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     per_updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (per_id),
-    FOREIGN KEY (per_create_admin_id) REFERENCES admins(adm_id)
+    CONSTRAINT fk_period_admin FOREIGN KEY (per_create_admin_id) 
+    REFERENCES admins(adm_id) 
+    ON DELETE RESTRICT 
+    ON UPDATE CASCADE
 );
 
 CREATE TABLE users (
@@ -33,8 +37,11 @@ CREATE TABLE users (
     use_name VARCHAR(50) NOT NULL,
     use_last_name VARCHAR(50) NOT NULL,
     use_second_last_name VARCHAR(50),
+    use_career ENUM('LIME', 'LIE', 'LICE', 'LIMT', 'LISC', 'LGE', 'LAD', 'LIDIA'),
+    use_phone VARCHAR(15) NOT NULL,
     use_email VARCHAR(100) NOT NULL,
     use_password VARCHAR(255) NOT NULL,
+    use_is_teacher BOOL NOT NULL,
     use_created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     use_updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (use_id)
@@ -57,8 +64,14 @@ CREATE TABLE activities (
     act_user_id INT NOT NULL,
     act_period_id INT NOT NULL,
     PRIMARY KEY (act_id),
-    FOREIGN KEY (act_user_id) REFERENCES users(use_id),
-    FOREIGN KEY (act_period_id) REFERENCES periods(per_id)
+    CONSTRAINT fk_activity_user FOREIGN KEY (act_user_id) 
+    REFERENCES users(use_id) 
+    ON DELETE RESTRICT 
+    ON UPDATE CASCADE,
+    CONSTRAINT fk_activity_period FOREIGN KEY (act_period_id) 
+    REFERENCES periods(per_id) 
+    ON DELETE CASCADE 
+    ON UPDATE CASCADE
 );
 
 CREATE TABLE collectives (
@@ -69,6 +82,7 @@ CREATE TABLE collectives (
     col_hours INT NOT NULL,
     col_date DATE NOT NULL,
     col_authorization VARCHAR(100) NOT NULL,
+    col_signatures_format VARCHAR(100) NOT NULL,
     col_evidence JSON NOT NULL,
     col_area ENUM('dp', 'rs', 'cee', 'fci', 'ac') NOT NULL,
     col_status ENUM('approval', 'pending', 'rejected') NOT NULL,
@@ -77,65 +91,90 @@ CREATE TABLE collectives (
     col_user_id INT NOT NULL,
     col_period_id INT NOT NULL,
     PRIMARY KEY (col_id),
-    FOREIGN KEY (col_user_id) REFERENCES users(use_id),
-    FOREIGN KEY (col_period_id) REFERENCES periods(per_id)
+    CONSTRAINT fk_collective_user FOREIGN KEY (col_user_id) 
+    REFERENCES users(use_id) 
+    ON DELETE RESTRICT 
+    ON UPDATE CASCADE,
+    CONSTRAINT fk_collective_period FOREIGN KEY (col_period_id) 
+    REFERENCES periods(per_id) 
+    ON DELETE CASCADE 
+    ON UPDATE CASCADE
 );
 
--- Insertar datos de administradores
-INSERT INTO admins (adm_correo, adm_password, adm_name, adm_last_name, adm_second_last_name) VALUES
-('admin1@universidad.edu', '$2a$12$1HqHxm3QTkBxZ1lS5vZ3k.4ZE3jB5fChH0hV96ft.gFfmHZxbx.pq', 'Juan', 'Pérez', 'Gómez'),
-('admin2@universidad.edu', '$2a$12$cvPm90dgBzFLbXk5Svk/CeNR3ymL8rTkTZgqgRlF4gU5jdgBXmI3i', 'María', 'Rodríguez', 'López'),
-('admin3@universidad.edu', '$2a$12$KmnA.cRjA9hdduDWxIBvs.282UfI3YidkUZ91Qq4BoE3EJdFkxlsS', 'Carlos', 'González', 'Martínez'),
-('admin4@universidad.edu', '$2a$12$UUQkJA0PtAzE2zvA4q3zxu4h0Inrn1ZdS3VRlBnJpB2vT9jpLR12.', 'Laura', 'Fernández', 'Sánchez'),
-('admin5@universidad.edu', '$2a$12$FdESaCrvFiUnKOwf1.FfC.6NzGmoFeG7Jmzm4LlF7fr.GpXqsrEXK', 'Roberto', 'Díaz', 'Hernández');
+-- Indices para optimizar búsquedas frecuentes
+CREATE INDEX idx_use_nua ON users(use_nua);
+CREATE INDEX idx_use_email ON users(use_email);
+CREATE INDEX idx_act_area ON activities(act_area);
+CREATE INDEX idx_col_area ON collectives(col_area);
+CREATE INDEX idx_activities_period ON activities(act_period_id);
+CREATE INDEX idx_collectives_period ON collectives(col_period_id);
+CREATE INDEX idx_act_user ON activities(act_user_id);
+CREATE INDEX idx_col_user ON collectives(col_user_id);
+CREATE INDEX idx_per_status ON periods(per_status);
+CREATE INDEX idx_act_status ON activities(act_status);
+CREATE INDEX idx_col_status ON collectives(col_status);
 
--- Insertar datos de periodos (formato modificado)
+-- Restricciones UNIQUE
+ALTER TABLE users ADD CONSTRAINT unique_use_nua UNIQUE (use_nua);
+ALTER TABLE users ADD CONSTRAINT unique_use_email UNIQUE (use_email);
+ALTER TABLE admins ADD CONSTRAINT unique_adm_email UNIQUE (adm_email);
+ALTER TABLE periods ADD CONSTRAINT unique_per_name UNIQUE (per_name);
+
+-- Restricciones CHECK para validación de datos
+ALTER TABLE periods ADD CONSTRAINT chk_period_dates CHECK (per_date_start < per_date_end);
+ALTER TABLE activities ADD CONSTRAINT chk_activity_dates CHECK (act_date_start <= act_date_end);
+ALTER TABLE activities ADD CONSTRAINT chk_activity_hours CHECK (act_hours > 0);
+ALTER TABLE collectives ADD CONSTRAINT chk_collective_hours CHECK (col_hours > 0);
+
+-- Script para insertar datos de prueba en la base de datos proyecto_cafe
+
+-- Datos para la tabla admins
+INSERT INTO admins (adm_email, adm_password, adm_name, adm_last_name, adm_second_last_name, adm_phone) VALUES
+('admin.principal@cafe.uaa.mx', '$2a$10$1qAz2wSx3eDc4rFv5tGb5e84HFHpxx.M7TPvBkx', 'María', 'González', 'Sánchez', '4491234567'),
+('admin.soporte@cafe.uaa.mx', '$2a$10$1qAz2wSx3eDc4rFv5tGb5e84HFmS8uTX2BkSZQT', 'Juan', 'Pérez', 'López', '4499876543'),
+('admin.sistemas@cafe.uaa.mx', '$2a$10$1qAz2wSx3eDc4rFv5tGb5e84HF.9oaji2qbWpKKR', 'Roberto', 'Martínez', 'Flores', '4492345678'),
+('coordinador@cafe.uaa.mx', '$2a$10$1qAz2wSx3eDc4rFv5tGb5e84HFow02pzixJZMG', 'Laura', 'Ramírez', 'Torres', '4498765432'),
+('director@cafe.uaa.mx', '$2a$10$1qAz2wSx3eDc4rFv5tGb5e84HFpow8ZahJKimgh', 'Carlos', 'Hernández', 'García', '4493456789');
+
+-- Datos para la tabla periods
 INSERT INTO periods (per_name, per_date_start, per_date_end, per_exclusive, per_status, per_create_admin_id) VALUES
-('EJ24-1E', '2024-01-15', '2024-05-30', TRUE, 'ended', 1),
-('AD24-1E', '2024-08-12', '2024-12-20', TRUE, 'active', 2),
-('EJ25-1E', '2025-01-13', '2025-05-28', TRUE, 'pending', 3),
-('AD25-1', '2025-08-10', '2025-12-18', FALSE, 'pending', 4),
-('EJ26-1', '2026-01-11', '2026-05-29', FALSE, 'pending', 5);
+('EJ24-1E', '2024-01-15', '2024-06-30', TRUE, 'active', 1),
+('AJ24-2E', '2024-07-01', '2024-12-15', FALSE, 'pending', 2),
+('EJ25-1E', '2025-01-15', '2025-06-30', TRUE, 'pending', 1),
+('AJ23-2E', '2023-07-01', '2023-12-15', FALSE, 'ended', 3),
+('EJ23-1E', '2023-01-16', '2023-06-29', TRUE, 'ended', 4);
 
--- 1. Primero asegurémonos que tenemos los usuarios correctamente insertados
-INSERT INTO users (use_id, use_nua, use_name, use_last_name, use_second_last_name, use_email, use_password) VALUES
-(1, 101546, 'Ana', 'Martínez', 'Torres', 'a.martinez@alumnos.edu', '$2a$12$B4g9S8XmL3Lh0XqiaZj2RODShXJV1OJ8XULJvBKhbxTPyh0xM.x8.'),
-(2, 102358, 'Pedro', 'Sánchez', 'Vega', 'p.sanchez@alumnos.edu', '$2a$12$lqPkf57ZrL4vbfW7UjGrJ.DpBKr/hgkrbxzPjpXOX4LMNZmkn2Zki'),
-(3, 103789, 'Lucía', 'Gómez', 'Ruiz', 'l.gomez@alumnos.edu', '$2a$12$4mSYZXrz6jXMo8RdsfYmD.EJvJD9rEAI8ktV7NvG7rDfvhVn8jmuK'),
-(4, 104234, 'Miguel', 'López', 'García', 'm.lopez@alumnos.edu', '$2a$12$rJFLkKPqwTf.WTGczH9.XOFajJxd6G8MRKNh3U48bNQcZ6hJ1LEEG'),
-(5, 105876, 'Claudia', 'Hernández', 'Flores', 'c.hernandez@alumnos.edu', '$2a$12$Ty.PrzZErxFSfjVrhD4rKerYKB5YF95gY4q6Z57M4Wk9JVlP4B5ZK'),
-(6, 106432, 'Jorge', 'Ramírez', 'Díaz', 'j.ramirez@alumnos.edu', '$2a$12$jm3CwUL6K1sYO9Y0Kf0YluUPYPz6zrwKezS2GJrHJWBxvwxxYYZ0K'),
-(7, 107985, 'Daniela', 'Ortiz', 'Miranda', 'd.ortiz@alumnos.edu', '$2a$12$5o9NhkHYfNBgi.hZpJC6SOeSnDHfMh08H3ebN5iSZuJr8P1.0OqSm'),
-(8, 108321, 'Alejandro', 'Vargas', 'Mendoza', 'a.vargas@alumnos.edu', '$2a$12$bhpUqA/7SVJ/nx39hjQ1LeYG.WHuPGLO0wuSjLN5Xq438DpaieP.q'),
-(9, 109765, 'Sofía', 'Cruz', 'Jiménez', 's.cruz@alumnos.edu', '$2a$12$sFh9uTAE04w.cu7/IfyzQe2cguh9N.zjjzxJFplt1Jju6gZ/AGxvK'),
-(10, 110432, 'David', 'Morales', 'Castillo', 'd.morales@alumnos.edu', '$2a$12$QZhkIkwcKrQy45wCVMJheOB7r8SQcgvjjezXQCTeAROaHOjXKW.xG');
+-- Datos para la tabla users (estudiantes y profesores)
+INSERT INTO users (use_nua, use_name, use_last_name, use_second_last_name, use_career, use_phone, use_email, use_password, use_is_teacher) VALUES
+-- Estudiantes
+(269123, 'Ana', 'López', 'Martínez', 'LIME', '4491122334', 'ana.lopez@edu.uaa.mx', '$2a$10$xJz2wSx3eDc4rFv5tGb5e84HFqertyw22BkSZQT', FALSE),
+(272345, 'Miguel', 'García', 'Rodríguez', 'LIE', '4492233445', 'miguel.garcia@edu.uaa.mx', '$2a$10$2Ccx3wSx3eDc4rFv5tGb5e84HFghy6tywpKKR', FALSE),
+(265678, 'Sofía', 'Hernández', 'Pérez', 'LICE', '4493344556', 'sofia.hernandez@edu.uaa.mx', '$2a$10$3q3z2wSx3eDc4rFv5tGb5e84HFp09jKimgh', FALSE),
+(277890, 'Daniel', 'Torres', 'Gómez', 'LIMT', '4494455667', 'daniel.torres@edu.uaa.mx', '$2a$10$4yAt2wSx3eDc4rFv5tGb5e84HF09utX2BkSZQT', FALSE),
+(271234, 'Laura', 'Ramírez', 'Sánchez', 'LISC', '4495566778', 'laura.ramirez@edu.uaa.mx', '$2a$10$5U2t2wSx3eDc4rFv5tGb5e84HFBw22pzixJZMG', FALSE),
+(268901, 'Carlos', 'Flores', 'Vargas', 'LGE', '4496677889', 'carlos.flores@edu.uaa.mx', '$2a$10$6z1q2wSx3eDc4rFv5tGb5e84HFpow8ZahJKimgh', FALSE),
+(273456, 'Gabriela', 'Vázquez', 'Morales', 'LAD', '4497788990', 'gabriela.vazquez@edu.uaa.mx', '$2a$10$7WA2wSx3eDc4rFv5tGb5e84HFmS8uTX2BkSZQT', FALSE),
+(274567, 'Eduardo', 'Castro', 'Luna', 'LIDIA', '4498899001', 'eduardo.castro@edu.uaa.mx', '$2a$10$8B4q2wSx3eDc4rFv5tGb5e84HFpxx.M7TPvBkx', FALSE),
+-- Profesores
+(123456, 'Alejandro', 'Méndez', 'Ríos', NULL, '4491234987', 'alejandro.mendez@edu.uaa.mx', '$2a$10$9z1q2wSx3eDc4rFv5tGb5e84HFBw22pzixJZMG', TRUE),
+(134567, 'Patricia', 'Jiménez', 'Ortiz', NULL, '4492345098', 'patricia.jimenez@edu.uaa.mx', '$2a$10$0UYt2wSx3eDc4rFv5tGb5e84HF.9oaji2qbWpKKR', TRUE);
 
--- 2. Asegúrate que el último periodo se inserta correctamente
-INSERT INTO periods (per_name, per_date_start, per_date_end, per_exclusive, per_status, per_create_admin_id) VALUES
-('EJ26-1', '2026-01-11', '2026-05-29', FALSE, 'pending', 5);
-
--- 3. Ahora podemos insertar los colectivos con seguridad
-INSERT INTO collectives (col_event, col_institution, col_place, col_hours, col_date, col_authorization, col_evidence, col_area, col_status, col_user_id, col_period_id) VALUES
-('Limpieza de parques', 'Ayuntamiento Municipal', 'Parque Central', 6, '2024-02-25', 'https://example.com/docs/auth_parques_2024.pdf', '{"images": ["https://imgur.com/b12cD3E", "https://imgur.com/f45gH6I"]}', 'rs', 'approval', 1, 1),
-('Apoyo a damnificados', 'Cruz Roja', 'Zona Norte', 8, '2024-03-18', 'https://example.com/docs/auth_cruzroja_2024.pdf', '{"images": ["https://imgur.com/j78kL9M", "https://imgur.com/n23oP4Q"]}', 'rs', 'pending', 2, 1),
-('Feria de ciencias', 'Secretaría de Educación', 'Escuela Primaria "Benito Juárez"', 5, '2024-04-05', 'https://example.com/docs/auth_feria_ciencias_2024.pdf', '{"images": ["https://imgur.com/r56sT7U", "https://imgur.com/v89wX0Y"]}', 'fci', 'approval', 3, 1),
-('Talleres de computación', 'DIF Municipal', 'Centro Comunitario "Esperanza"', 10, '2024-09-28', 'https://example.com/docs/auth_talleres_comp_2024.pdf', '{"images": ["https://imgur.com/z34aB5C", "https://imgur.com/b67cD8E"]}', 'dp', 'pending', 4, 2),
-('Campaña de reforestación', 'Secretaría de Medio Ambiente', 'Reserva Ecológica', 7, '2024-10-15', 'https://example.com/docs/auth_reforestacion_2024.pdf', '{"images": ["https://imgur.com/f90gH1I", "https://imgur.com/j23kL4M"]}', 'rs', 'approval', 5, 2),
-('Festival cultural universitario', 'Universidad Autónoma', 'Plaza Central', 12, '2024-11-10', 'https://example.com/docs/auth_festival_2024.pdf', '{"images": ["https://imgur.com/n56oP7Q", "https://imgur.com/r89sT0U"]}', 'ac', 'pending', 6, 2),
-('Jornada de vacunación', 'Secretaría de Salud', 'Centro de Salud Municipal', 6, '2025-02-08', 'https://example.com/docs/auth_vacunacion_2025.pdf', '{"images": ["https://imgur.com/v34wX5Y", "https://imgur.com/z67aB8C"]}', 'rs', 'pending', 7, 3),
-('Congreso de innovación', 'Consejo de Ciencia y Tecnología', 'Centro de Congresos', 15, '2025-03-20', 'https://example.com/docs/auth_congreso_2025.pdf', '{"images": ["https://imgur.com/d90eF1G", "https://imgur.com/h23iJ4K"]}', 'cee', 'pending', 8, 3),
-('Maratón de programación', 'Asociación de Desarrolladores', 'Campus Tecnológico', 24, '2025-04-15', 'https://example.com/docs/auth_maraton_2025.pdf', '{"images": ["https://imgur.com/l56mN7O", "https://imgur.com/p89qR0S"]}', 'dp', 'pending', 9, 3),
-('Torneo deportivo interuniversitario', 'Consejo del Deporte Universitario', 'Polideportivo Central', 8, '2024-05-22', 'https://example.com/docs/auth_torneo_2024.pdf', '{"images": ["https://imgur.com/t34uV5W", "https://imgur.com/x67yZ8A"]}', 'ac', 'approval', 10, 1);
-
--- 4. Finalmente, insertamos las actividades
+-- Datos para la tabla activities
 INSERT INTO activities (act_name, act_speaker, act_description, act_date_start, act_date_end, act_hours, act_institution, act_evidence, act_area, act_status, act_user_id, act_period_id) VALUES
-('Taller de programación web', 'Dr. Manuel Vázquez', 'Taller práctico sobre desarrollo de aplicaciones web usando tecnologías modernas', '2024-02-10', '2024-02-15', 20, 'Facultad de Ingeniería', '{"images": ["https://imgur.com/a12bC3D", "https://imgur.com/d45eF6G"]}', 'dp', 'approval', 1, 1),
-('Conferencia de IA aplicada', 'Dra. Patricia Guerra', 'Conferencia sobre avances recientes en inteligencia artificial y sus aplicaciones', '2024-03-05', '2024-03-05', 4, 'Centro de Investigaciones', '{"images": ["https://imgur.com/h78iJ9K", "https://imgur.com/l23mN4O"]}', 'fci', 'pending', 2, 1),
-('Hackathon universitario', NULL, 'Evento de 48 horas para desarrollar soluciones tecnológicas a problemas sociales', '2024-04-20', '2024-04-22', 48, 'Campus Central', '{"images": ["https://imgur.com/p56qR7S", "https://imgur.com/t89uV2W"]}', 'cee', 'approval', 3, 1),
-('Curso de bases de datos', 'Mtro. Alberto Soto', 'Curso intensivo sobre diseño y optimización de bases de datos relacionales', '2024-09-15', '2024-09-30', 30, 'Facultad de Informática', '{"images": ["https://imgur.com/x34yZ5A", "https://imgur.com/b67cD8E"]}', 'dp', 'pending', 4, 2),
-('Seminario de ética profesional', 'Dr. Fernando Torres', 'Seminario sobre ética en la práctica profesional y responsabilidad social', '2024-10-08', '2024-10-09', 8, 'Auditorio General', '{"images": ["https://imgur.com/f90gH1I", "https://imgur.com/j23kL4M"]}', 'rs', 'approval', 5, 2),
-('Taller de emprendimiento', 'Lic. Rosa Mendoza', 'Taller práctico para desarrollar habilidades emprendedoras y plan de negocios', '2024-11-12', '2024-11-14', 15, 'Centro de Emprendedores', '{"images": ["https://imgur.com/n56oP7Q", "https://imgur.com/r89sT0U"]}', 'cee', 'rejected', 6, 2),
-('Coloquio de investigación', 'Varios ponentes', 'Presentación de avances de investigación en diferentes áreas científicas', '2025-02-20', '2025-02-22', 12, 'Instituto de Ciencias', '{"images": ["https://imgur.com/v34wX5Y", "https://imgur.com/z67aB8C"]}', 'fci', 'pending', 7, 3),
-('Curso de gestión de proyectos', 'Ing. Laura Estrada', 'Curso sobre metodologías ágiles para gestión efectiva de proyectos', '2025-03-18', '2025-03-25', 25, 'Facultad de Administración', '{"images": ["https://imgur.com/d90eF1G", "https://imgur.com/h23iJ4K"]}', 'dp', 'pending', 8, 3),
-('Taller de habilidades blandas', 'Psic. Carlos Mejía', 'Taller para desarrollar comunicación efectiva y trabajo en equipo', '2025-04-10', '2025-04-12', 10, 'Centro de Desarrollo Humano', '{"images": ["https://imgur.com/l56mN7O", "https://imgur.com/p89qR0S"]}', 'ac', 'pending', 9, 3),
-('Simposio de innovación tecnológica', 'Varios especialistas', 'Simposio internacional sobre tendencias en innovación tecnológica', '2024-05-15', '2024-05-17', 18, 'Centro de Convenciones', '{"images": ["https://imgur.com/t34uV5W", "https://imgur.com/x67yZ8A"]}', 'fci', 'approval', 10, 1);
+('Conferencia Inteligencia Artificial', 'Dr. Manuel Cortés', 'Conferencia sobre los avances recientes en inteligencia artificial y su aplicación en la educación', '2024-02-15', '2024-02-15', 4, 'Universidad Autónoma de Aguascalientes', '{"constancia": "constancia_ia.pdf", "fotos": ["foto1.jpg", "foto2.jpg"]}', 'fci', 'approval', 1, 1),
+('Taller de Diseño Web', 'Mtra. Lucía Fernández', 'Taller práctico para aprender a diseñar sitios web responsivos con las últimas tecnologías', '2024-03-10', '2024-03-12', 12, 'Universidad Autónoma de Aguascalientes', '{"constancia": "constancia_web.pdf", "proyecto": "proyecto_final.zip"}', 'dp', 'approval', 2, 1),
+('Seminario de Investigación Educativa', 'Dr. Ricardo Sánchez', 'Seminario orientado a métodos de investigación aplicados a la educación', '2024-04-05', '2024-04-06', 8, 'Instituto de Investigación Educativa', '{"constancia": "constancia_seminario.pdf"}', 'rs', 'pending', 3, 1),
+('Curso de Herramientas Digitales', 'Ing. Carmen Ortiz', 'Curso intensivo sobre herramientas digitales para la docencia en línea', '2024-05-20', '2024-05-22', 15, 'Centro de Capacitación Docente', '{"constancia": "constancia_herramientas.pdf", "material": "material_curso.pdf"}', 'fci', 'approval', 4, 1),
+('Congreso de Innovación Educativa', 'Varios ponentes', 'Congreso internacional sobre nuevas metodologías y tecnologías en la educación', '2023-09-15', '2023-09-17', 20, 'Asociación de Innovación Educativa', '{"constancia": "constancia_congreso.pdf", "memoria": "memoria_congreso.pdf"}', 'cee', 'approval', 5, 4),
+('Workshop de Creatividad', 'Lic. Antonio Mendoza', 'Workshop para desarrollar habilidades creativas aplicadas a la enseñanza', '2023-10-10', '2023-10-10', 5, 'Centro Cultural Universitario', '{"constancia": "constancia_workshop.pdf", "proyecto": "proyecto_creatividad.pdf"}', 'ac', 'rejected', 6, 4),
+('Curso de Estrategias Didácticas', 'Dra. Silvia Torres', 'Curso sobre estrategias didácticas innovadoras para el aula', '2023-11-05', '2023-11-07', 12, 'Facultad de Educación', '{"constancia": "constancia_estrategias.pdf"}', 'dp', 'approval', 7, 4),
+('Diplomado en Evaluación Educativa', 'Varios especialistas', 'Diplomado enfocado en técnicas y métodos de evaluación en educación superior', '2023-08-01', '2023-12-01', 120, 'Universidad Autónoma de Aguascalientes', '{"constancia": "constancia_diplomado.pdf", "proyecto_final": "evaluacion_final.pdf"}', 'rs', 'pending', 8, 4);
+
+-- Datos para la tabla collectives
+INSERT INTO collectives (col_event, col_institution, col_place, col_hours, col_date, col_authorization, col_signatures_format, col_evidence, col_area, col_status, col_user_id, col_period_id) VALUES
+('Jornada de Inclusión Digital', 'Universidad Autónoma de Aguascalientes', 'Auditorio Central', 6, '2024-02-28', 'JDGT/2024-028', 'formato_firmas_jid.pdf', '{"registro": "registro_asistentes.pdf", "fotos": ["jornada1.jpg", "jornada2.jpg"]}', 'fci', 'approval', 1, 1),
+('Taller Colectivo de Programación', 'Facultad de Sistemas', 'Laboratorio A', 8, '2024-03-15', 'TCPT/2024-045', 'formato_firmas_tcp.pdf', '{"registro": "lista_participantes.pdf", "codigo": "proyectos.zip"}', 'dp', 'pending', 2, 1),
+('Encuentro de Estudiantes de Educación', 'Departamento de Educación', 'Sala Magna', 5, '2024-04-20', 'EEE/2024-067', 'formato_firmas_eee.pdf', '{"memoria": "memoria_encuentro.pdf", "fotos": ["encuentro1.jpg"]}', 'rs', 'approval', 3, 1),
+('Foro de Innovación Tecnológica', 'Centro de Tecnología Educativa', 'Centro de Congresos', 7, '2023-09-25', 'FIT/2023-089', 'formato_firmas_fit.pdf', '{"registro": "asistentes_foro.pdf", "presentaciones": "ponencias.zip"}', 'fci', 'pending', 4, 4),
+('Festival Cultural Universitario', 'Departamento de Extensión Cultural', 'Plaza Central', 10, '2023-10-15', 'FCU/2023-103', 'formato_firmas_fcu.pdf', '{"programa": "programa_actividades.pdf", "fotos": ["festival1.jpg", "festival2.jpg"]}', 'ac', 'approval', 5, 4),
+('Simposio de Investigación Educativa', 'Instituto de Investigación', 'Auditorio 2', 12, '2023-11-10', 'SIE/2023-128', 'formato_firmas_sie.pdf', '{"memoria": "memoria_simposio.pdf", "ponencias": "ponencias_simposio.zip"}', 'cee', 'approval', 6, 4);

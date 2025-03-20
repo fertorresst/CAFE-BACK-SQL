@@ -2,7 +2,6 @@ const jwt = require('jsonwebtoken')
 const Period = require('../models/periodModel')
 
 const getAllPeriods = async (req, res) => {
-  console.log('GET ALL PERIODS')
   try {
     const periods = await Period.getAllPeriods()
     res.status(200).json({
@@ -11,6 +10,24 @@ const getAllPeriods = async (req, res) => {
       message: 'PERIODOS OBTENIDOS CORRECTAMENTE'
     })
   } 
+  catch (err) {
+    res.status(500).json({
+      message: err.message,
+      success: false
+    })
+  }
+}
+
+const getPeriodInfo = async (req, res) => {
+  const { id } = req.params
+  try {
+    const period = await Period.getPeriodInfo(id)
+    res.status(200).json({
+      period,
+      success: true,
+      message: 'PERIODO OBTENIDO CORRECTAMENTE'
+    })
+  }
   catch (err) {
     res.status(500).json({
       message: err.message,
@@ -90,6 +107,24 @@ const updateStatus = async (req, res) => {
   }
 }
 
+const getAllPeriodActivities = async (req, res) => {
+  const { id } = req.params
+  try {
+    const data = await Period.getAllPeriodActivities(id)
+    res.status(200).json({
+      data,
+      success: true,
+      message: 'ACTIVIDADES OBTENIDAS CORRECTAMENTE'
+    })
+  } 
+  catch (err) {
+    res.status(500).json({
+      message: err.message,
+      success: false
+    })
+  }
+}
+
 const getAreaCountsByPeriodId = async (req, res) => {
   const { id } = req.params
   try {
@@ -108,12 +143,32 @@ const getAreaCountsByPeriodId = async (req, res) => {
   }
 }
 
+const getPeriodForDownload = async (req, res) => {
+  const { id } = req.params
+  try {
+    const period = await Period.getPeriodForDownload(id)
+    res.status(200).json({
+      period,
+      success: true,
+      message: 'PERIODO OBTENIDO CORRECTAMENTE'
+    })
+  } 
+  catch (err) {
+    res.status(500).json({
+      message: err.message,
+      success: false
+    })
+  }
+}
+
 module.exports = {
   getAllPeriods,
+  getPeriodInfo,
   createPeriod,
   deletePeriod,
   updateDates,
   updateStatus,
-  getAreaCountsByPeriodId
-  // getAllPeriodActivities
+  getAllPeriodActivities,
+  getAreaCountsByPeriodId,
+  getPeriodForDownload
 }

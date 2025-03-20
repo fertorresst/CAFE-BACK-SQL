@@ -17,13 +17,99 @@ class Period extends IPeriod {
 
   static async getAllPeriods() {
     try {
-      const query = 'SELECT * FROM periods'
-      const periods = await db.query(query)
-      return new Period(periods)
+      // Consulta principal para obtener todos los periodos
+      const periodsQuery = 'SELECT * FROM periods'
+      const periods = await db.query(periodsQuery)
+      
+      // Para cada periodo, consultamos las estadísticas de actividades
+      for (const period of periods) {
+        // Formateamos las fechas
+        period.per_date_start = new Date(period.per_date_start).toISOString().split('T')[0]
+        period.per_date_end = new Date(period.per_date_end).toISOString().split('T')[0]
+        period.per_created_at = new Date(period.per_created_at).toISOString().split('T')[0]
+        period.per_updated_at = new Date(period.per_updated_at).toISOString().split('T')[0]
+        
+        // Consulta de estadísticas de actividades
+        const activitiesStatsQuery = `
+          SELECT 
+            COUNT(*) as total_activities,
+            SUM(CASE WHEN act_status = 'approval' THEN 1 ELSE 0 END) as approved_activities,
+            SUM(CASE WHEN act_status = 'pending' THEN 1 ELSE 0 END) as pending_activities,
+            SUM(CASE WHEN act_status = 'rejected' THEN 1 ELSE 0 END) as rejected_activities
+          FROM activities
+          WHERE act_period_id = ?
+        `
+        const [activityStats] = await db.query(activitiesStatsQuery, [period.per_id])
+        
+        // Consulta de estadísticas de colectivos
+        const collectivesStatsQuery = `
+          SELECT 
+            COUNT(*) as total_collectives,
+            SUM(CASE WHEN col_status = 'approval' THEN 1 ELSE 0 END) as approved_collectives,
+            SUM(CASE WHEN col_status = 'pending' THEN 1 ELSE 0 END) as pending_collectives,
+            SUM(CASE WHEN col_status = 'rejected' THEN 1 ELSE 0 END) as rejected_collectives
+          FROM collectives
+          WHERE col_period_id = ?
+        `
+        const [collectiveStats] = await db.query(collectivesStatsQuery, [period.per_id])
+        
+        // Añadimos las estadísticas al objeto periodo
+        period.activity_stats = {
+          total: Number(activityStats.total_activities) || 0,
+          approved: Number(activityStats.approved_activities) || 0,
+          pending: Number(activityStats.pending_activities) || 0,
+          rejected: Number(activityStats.rejected_activities) || 0
+        }
+        
+        period.collective_stats = {
+          total: Number(collectiveStats.total_collectives) || 0,
+          approved: Number(collectiveStats.approved_collectives) || 0,
+          pending: Number(collectiveStats.pending_collectives) || 0,
+          rejected: Number(collectiveStats.rejected_collectives) || 0
+        }
+        
+        // Total combinado de ambas categorías
+        period.total_records = period.activity_stats.total + period.collective_stats.total
+        period.total_approved = period.activity_stats.approved + period.collective_stats.approved
+        period.total_pending = period.activity_stats.pending + period.collective_stats.pending
+        period.total_rejected = period.activity_stats.rejected + period.collective_stats.rejected
+      }
+      
+      return periods
     }
     catch (err) {
       console.log('ERROR =>', err)
       throw new Error('ERROR AL OBTENER LOS PERIODOS')
+    }
+  }
+
+  static async getPeriodInfo(id) {
+    try {
+      if (!id) {
+        throw new Error('SE REQUIERE UN ID DE PERIODO VÁLIDO')
+      } else if (isNaN(id)) {
+        throw new Error('EL ID DE PERIODO DEBE SER UN NÚMERO')
+      }
+
+      // Consulta principal para obtener el periodo
+      const periodQuery = 'SELECT * FROM periods WHERE per_id = ?'
+      const periodResult = await db.query(periodQuery, [id])
+
+      if (!periodResult || periodResult.length === 0) {
+        throw new Error(`NO SE ENCONTRÓ UN PERIODO CON ID: ${id}`)
+      }
+
+      const period = periodResult[0]
+      period.per_date_start = new Date(period.per_date_start).toISOString().split('T')[0] // Formatear fecha de inicio
+      period.per_date_end = new Date(period.per_date_end).toISOString().split('T')[0] // Formatear fecha de fin
+      period.per_created_at = new Date(period.per_created_at).toISOString().split('T')[0] // Formatear fecha de creación
+      period.per_updated_at = new Date(period.per_updated_at).toISOString().split('T')[0] // Formatear fecha de actualización
+
+      return period
+    }
+    catch (err) {
+      console.log('ERROR =>', err)
+      throw new Error(err.message || 'ERROR AL OBTENER EL PERIODO')
     }
   }
 
@@ -35,7 +121,7 @@ class Period extends IPeriod {
 
       // Verificar que las fechas son válidas
       if (isNaN(newStartDate) || isNaN(newEndDate)) {
-        throw new Error('FECHAS INVÁLIDAS. ASEGÚRATE DE USAR EL FORMATO CORRECTO (YYYY-MM-DD)')
+        throw new Error('LAS FECHAS ESTÁN VACÍAS O SON INVÁLIDAS. ASEGÚRATE DE USAR EL FORMATO CORRECTO (YYYY-MM-DD)')
       }
 
       // Verificar que la fecha de inicio es anterior a la fecha de fin
@@ -114,7 +200,7 @@ class Period extends IPeriod {
 
       // Verificar que las fechas son válidas
       if (isNaN(newStartDate) || isNaN(newEndDate)) {
-        throw new Error('FECHAS INVÁLIDAS. ASEGÚRATE DE USAR EL FORMATO CORRECTO (YYYY-MM-DD)')
+        throw new Error('FECHAS INVÁLIDAS O VACÍAS. ASEGÚRATE DE USAR EL FORMATO CORRECTO (YYYY-MM-DD)')
       }
 
       // Verificar que la fecha de inicio es anterior a la fecha de fin
@@ -138,7 +224,7 @@ class Period extends IPeriod {
       ])
       
       // Si hay algún periodo que se solape, lanzar un error detallado
-      if (existingPeriods && existingPeriods.length > 0) {
+      if (existingPeriods && existingPeriods.length > 0 && existingPeriods[0].per_id !== id) {
         const conflictingPeriod = existingPeriods[0]
         throw new Error(`EL PERIODO SE SOLAPA CON EL PERIODO EXISTENTE: ${conflictingPeriod.per_name} (${conflictingPeriod.per_date_start.toISOString().split('T')[0]} - ${conflictingPeriod.per_date_end.toISOString().split('T')[0]})`)
       }
@@ -196,6 +282,40 @@ class Period extends IPeriod {
     catch (err) {
       console.log('ERROR =>', err)
       throw new Error(err.message || 'ERROR AL ACTUALIZAR EL ESTADO DEL PERIODO')
+    }
+  }
+
+  static async getAllPeriodActivities(periodId) {
+    try {
+      if (!periodId) {
+        throw new Error('SE REQUIERE UN ID DE PERIODO VÁLIDO')
+      } else if (isNaN(periodId)) {
+        throw new Error('EL ID DE PERIODO DEBE SER UN NÚMERO')
+      }
+  
+      // Consulta para obtener las actividades del periodo
+      const activitiesQuery = `
+        SELECT * FROM activities 
+        WHERE act_period_id = ?
+      `
+      const activitiesResult = await db.query(activitiesQuery, [periodId])
+      
+      // Consulta para obtener los colectivos del periodo
+      const collectivesQuery = `
+        SELECT * FROM collectives 
+        WHERE col_period_id = ?
+      `
+      const collectivesResult = await db.query(collectivesQuery, [periodId])
+  
+      // Devolver objeto con los resultados
+      return {
+        periodId,
+        activities: activitiesResult,
+        collectives: collectivesResult
+      }
+    } catch (err) {
+      console.log('ERROR =>', err)
+      throw new Error(err.message || 'ERROR AL OBTENER LAS ACTIVIDADES DEL PERIODO')
     }
   }
 
@@ -283,7 +403,69 @@ class Period extends IPeriod {
       throw new Error(err.message || 'ERROR AL OBTENER LOS CONTEOS POR ÁREA')
     }
   }
+
+  static async getPeriodForDownload(periodId) {
+    try {
+      if (!periodId) {
+        throw new Error('SE REQUIERE UN ID DE PERIODO VÁLIDO')
+      } else if (isNaN(periodId)) {
+        throw new Error('EL ID DE PERIODO DEBE SER UN NÚMERO')
+      }
   
+      // Consulta para obtener el periodo y sus actividades
+      const periodQuery = `
+        SELECT * FROM periods 
+        WHERE per_id = ?
+      `
+      const periodResult = await db.query(periodQuery, [periodId])
+      
+      if (!periodResult || periodResult.length === 0) {
+        throw new Error(`NO SE ENCONTRÓ UN PERIODO CON ID: ${periodId}`)
+      }
+  
+      const period = periodResult[0]
+      const periodName = period.per_name
+      const periodStartDate = period.per_date_start
+      const periodEndDate = period.per_date_end
+      const periodExclusive = period.per_exclusive
+      const periodStatus = period.per_status
+      const periodCreateAdminId = period.per_create_admin_id
+  
+      if (periodStatus !== 'ended') {
+        throw new Error('EL PERIODO DEBE ESTAR FINALIZADO PARA PODER DESCARGARLO')
+      }
+
+      // Consulta para obtener las actividades del periodo
+      const activitiesQuery = `
+        SELECT * FROM activities 
+        WHERE act_period_id = ?
+      `
+      const activitiesResult = await db.query(activitiesQuery, [periodId])
+      
+      // Consulta para obtener los colectivos del periodo
+      const collectivesQuery = `
+        SELECT * FROM collectives 
+        WHERE col_period_id = ?
+      `
+      const collectivesResult = await db.query(collectivesQuery, [periodId])
+  
+      // Devolver objeto con los resultados
+      return {
+        periodId,
+        periodName,
+        periodStartDate,
+        periodEndDate,
+        periodExclusive,
+        periodStatus,
+        periodCreateAdminId,
+        activities: activitiesResult,
+        collectives: collectivesResult
+      }
+    } catch (err) {
+      console.log('ERROR =>', err)
+      throw new Error(err.message || 'ERROR AL OBTENER EL PERIODO PARA DESCARGA')
+    }
+  }  
 }
 
 
