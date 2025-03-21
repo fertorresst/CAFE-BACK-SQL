@@ -1,4 +1,3 @@
-const jwt = require('jsonwebtoken')
 const Period = require('../models/periodModel')
 
 const getAllPeriods = async (req, res) => {

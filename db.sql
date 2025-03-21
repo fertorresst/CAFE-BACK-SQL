@@ -110,6 +110,7 @@ CREATE TABLE contact (
     con_activity_id INT,
     con_collective_id INT,
     con_description TEXT NOT NULL,
+    con_observations TEXT,
     con_status ENUM('pending', 'in_progress', 'resolved', 'cancelled') NOT NULL DEFAULT 'pending',
     con_created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     con_updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
