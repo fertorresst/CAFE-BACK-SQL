@@ -1,5 +1,9 @@
 const Period = require('../models/periodModel')
 
+/**
+ * Obtiene todos los periodos con estadísticas de actividades.
+ * @route GET /periods
+ */
 const getAllPeriods = async (req, res) => {
   try {
     const periods = await Period.getAllPeriods()
@@ -8,8 +12,7 @@ const getAllPeriods = async (req, res) => {
       success: true,
       message: 'PERIODOS OBTENIDOS CORRECTAMENTE'
     })
-  } 
-  catch (err) {
+  } catch (err) {
     res.status(500).json({
       message: err.message,
       success: false
@@ -17,6 +20,10 @@ const getAllPeriods = async (req, res) => {
   }
 }
 
+/**
+ * Obtiene la información detallada de un periodo.
+ * @route GET /periods/:id
+ */
 const getPeriodInfo = async (req, res) => {
   const { id } = req.params
   try {
@@ -26,8 +33,7 @@ const getPeriodInfo = async (req, res) => {
       success: true,
       message: 'PERIODO OBTENIDO CORRECTAMENTE'
     })
-  }
-  catch (err) {
+  } catch (err) {
     res.status(500).json({
       message: err.message,
       success: false
@@ -35,17 +41,26 @@ const getPeriodInfo = async (req, res) => {
   }
 }
 
+/**
+ * Crea un nuevo periodo.
+ * @route POST /periods
+ */
 const createPeriod = async (req, res) => {
   const { name, dateStart, dateEnd, exclusive, status, createAdminId } = req.body
   try {
+    if (!name || !dateStart || !dateEnd || exclusive === undefined || !status || !createAdminId) {
+      return res.status(400).json({
+        success: false,
+        message: 'FALTAN CAMPOS OBLIGATORIOS PARA CREAR EL PERIODO'
+      })
+    }
     const period = await Period.createPeriod(name, dateStart, dateEnd, exclusive, status, createAdminId)
     res.status(201).json({
       period,
       success: true,
       message: 'PERIODO CREADO CORRECTAMENTE'
     })
-  } 
-  catch (err) {
+  } catch (err) {
     res.status(500).json({
       message: err.message,
       success: false
@@ -53,16 +68,19 @@ const createPeriod = async (req, res) => {
   }
 }
 
+/**
+ * Elimina un periodo por su ID.
+ * @route DELETE /periods/:id
+ */
 const deletePeriod = async (req, res) => {
   const { id } = req.params
   try {
     await Period.deletePeriod(id)
-    res.status(201).json({
+    res.status(200).json({
       success: true,
       message: 'PERIODO ELIMINADO CORRECTAMENTE'
     })
-  } 
-  catch (err) {
+  } catch (err) {
     res.status(500).json({
       message: err.message,
       success: false
@@ -70,17 +88,26 @@ const deletePeriod = async (req, res) => {
   }
 }
 
+/**
+ * Actualiza las fechas de inicio y fin de un periodo.
+ * @route PUT /periods/dates
+ */
 const updateDates = async (req, res) => {
   const { id, dateStart, dateEnd } = req.body
   try {
+    if (!id || !dateStart || !dateEnd) {
+      return res.status(400).json({
+        success: false,
+        message: 'FALTAN CAMPOS OBLIGATORIOS PARA ACTUALIZAR LAS FECHAS'
+      })
+    }
     const period = await Period.updateDates(id, dateStart, dateEnd)
-    res.status(201).json({
+    res.status(200).json({
       period,
       success: true,
       message: 'FECHAS ACTUALIZADAS CORRECTAMENTE'
     })
-  } 
-  catch (err) {
+  } catch (err) {
     res.status(500).json({
       message: err.message,
       success: false
@@ -88,17 +115,26 @@ const updateDates = async (req, res) => {
   }
 }
 
+/**
+ * Actualiza el estado de un periodo.
+ * @route PUT /periods/status
+ */
 const updateStatus = async (req, res) => {
   const { id, status } = req.body
   try {
+    if (!id || !status) {
+      return res.status(400).json({
+        success: false,
+        message: 'FALTAN CAMPOS OBLIGATORIOS PARA ACTUALIZAR EL ESTADO'
+      })
+    }
     const period = await Period.updateStatus(id, status)
-    res.status(201).json({
+    res.status(200).json({
       period,
       success: true,
       message: 'ESTADO ACTUALIZADO CORRECTAMENTE'
     })
-  } 
-  catch (err) {
+  } catch (err) {
     res.status(500).json({
       message: err.message,
       success: false
@@ -106,6 +142,10 @@ const updateStatus = async (req, res) => {
   }
 }
 
+/**
+ * Obtiene todas las actividades de un periodo.
+ * @route GET /periods/:id/activities
+ */
 const getAllPeriodActivities = async (req, res) => {
   const { id } = req.params
   try {
@@ -115,8 +155,7 @@ const getAllPeriodActivities = async (req, res) => {
       success: true,
       message: 'ACTIVIDADES OBTENIDAS CORRECTAMENTE'
     })
-  } 
-  catch (err) {
+  } catch (err) {
     res.status(500).json({
       message: err.message,
       success: false
@@ -124,6 +163,10 @@ const getAllPeriodActivities = async (req, res) => {
   }
 }
 
+/**
+ * Obtiene el conteo de actividades por área para un periodo.
+ * @route GET /periods/:id/area-counts
+ */
 const getAreaCountsByPeriodId = async (req, res) => {
   const { id } = req.params
   try {
@@ -133,8 +176,7 @@ const getAreaCountsByPeriodId = async (req, res) => {
       success: true,
       message: 'AREAS CONTADAS CORRECTAMENTE'
     })
-  } 
-  catch (err) {
+  } catch (err) {
     res.status(500).json({
       message: err.message,
       success: false
@@ -142,6 +184,10 @@ const getAreaCountsByPeriodId = async (req, res) => {
   }
 }
 
+/**
+ * Obtiene la información completa de un periodo para descarga.
+ * @route GET /periods/:id/download
+ */
 const getPeriodForDownload = async (req, res) => {
   const { id } = req.params
   try {
@@ -151,8 +197,7 @@ const getPeriodForDownload = async (req, res) => {
       success: true,
       message: 'PERIODO OBTENIDO CORRECTAMENTE'
     })
-  } 
-  catch (err) {
+  } catch (err) {
     res.status(500).json({
       message: err.message,
       success: false

@@ -1,7 +1,11 @@
-CREATE DATABASE proyecto_cafe;
+-- Crear base de datos
+CREATE DATABASE IF NOT EXISTS proyecto_cafe;
 USE proyecto_cafe;
 
-CREATE TABLE admins (
+-- =========================
+-- TABLA DE ADMINISTRADORES
+-- =========================
+CREATE TABLE IF NOT EXISTS admins (
     adm_id INT NOT NULL AUTO_INCREMENT,
     adm_email VARCHAR(100) NOT NULL,
     adm_password VARCHAR(255) NOT NULL,
@@ -9,14 +13,20 @@ CREATE TABLE admins (
     adm_last_name VARCHAR(50) NOT NULL,
     adm_second_last_name VARCHAR(50),
     adm_phone VARCHAR(15) NOT NULL,
+    adm_role ENUM('superadmin', 'admin', 'validador', 'consulta') NOT NULL DEFAULT 'admin', -- Sistema de privilegios
     adm_created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     adm_updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    PRIMARY KEY (adm_id)
+    PRIMARY KEY (adm_id),
+    CONSTRAINT unique_adm_email UNIQUE (adm_email),
+    INDEX idx_adm_email (adm_email)
 );
 
-CREATE TABLE periods (
+-- =========================
+-- TABLA DE PERIODOS
+-- =========================
+CREATE TABLE IF NOT EXISTS periods (
     per_id INT NOT NULL AUTO_INCREMENT,
-    per_name VARCHAR(50) NOT NULL,
+    per_name VARCHAR(20) NOT NULL, -- Formato: EJAA-01 o ADAA-01, E al final si es exclusivo para egresados
     per_date_start DATE NOT NULL,
     per_date_end DATE NOT NULL,
     per_exclusive BOOL NOT NULL,
@@ -26,233 +36,148 @@ CREATE TABLE periods (
     per_updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (per_id),
     CONSTRAINT fk_period_admin FOREIGN KEY (per_create_admin_id) 
-    REFERENCES admins(adm_id) 
-    ON DELETE RESTRICT 
-    ON UPDATE CASCADE
+        REFERENCES admins(adm_id) 
+        ON DELETE RESTRICT 
+        ON UPDATE CASCADE,
+    CONSTRAINT unique_per_name UNIQUE (per_name),
+    CONSTRAINT chk_period_dates CHECK (per_date_start < per_date_end),
+    INDEX idx_per_status (per_status)
 );
 
-CREATE TABLE users (
+-- =========================
+-- TABLA DE USUARIOS
+-- =========================
+CREATE TABLE IF NOT EXISTS users (
     use_id INT NOT NULL AUTO_INCREMENT,
     use_nua INT NOT NULL,
     use_name VARCHAR(50) NOT NULL,
     use_last_name VARCHAR(50) NOT NULL,
     use_second_last_name VARCHAR(50),
-    use_career ENUM('LIME', 'LIE', 'LICE', 'LIMT', 'LISC', 'LGE', 'LAD', 'LIDIA'),
+    use_career ENUM('LIM', 'LIE', 'LICE', 'LIMT', 'LISC', 'LGE', 'LAD', 'LIDIA', 'LEI') NOT NULL,
     use_phone VARCHAR(15) NOT NULL,
     use_email VARCHAR(100) NOT NULL,
     use_password VARCHAR(255) NOT NULL,
     use_is_teacher BOOL NOT NULL,
+    use_campus ENUM('Salamanca', 'Yuriria') NOT NULL, -- Nueva columna para sede
     use_created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     use_updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    PRIMARY KEY (use_id)
+    PRIMARY KEY (use_id),
+    CONSTRAINT unique_use_nua UNIQUE (use_nua),
+    CONSTRAINT unique_use_email UNIQUE (use_email),
+    INDEX idx_use_nua (use_nua),
+    INDEX idx_use_email (use_email)
 );
 
-CREATE TABLE activities (
+-- =========================
+-- TABLA DE ACTIVIDADES
+-- =========================
+CREATE TABLE IF NOT EXISTS activities (
     act_id INT NOT NULL AUTO_INCREMENT,
     act_name VARCHAR(100) NOT NULL,
-    act_speaker VARCHAR(100),
-    act_description MEDIUMTEXT NOT NULL,
     act_date_start DATE NOT NULL,
     act_date_end DATE NOT NULL,
     act_hours INT NOT NULL,
     act_institution VARCHAR(100) NOT NULL,
     act_evidence JSON NOT NULL,
-    act_area ENUM('dp', 'rs', 'cee', 'fci', 'ac') NOT NULL,
-    act_status ENUM('approval', 'pending', 'rejected') NOT NULL,
+    act_area ENUM('DP', 'RS', 'CEE', 'FCI', 'AC') NOT NULL,
+    act_status ENUM('approval', 'pending', 'rejected', 'contacted') NOT NULL,
+    act_observations TEXT,
+    act_last_admin_id INT, -- Nuevo campo: último admin que modificó la actividad
     act_created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     act_updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     act_user_id INT NOT NULL,
     act_period_id INT NOT NULL,
     PRIMARY KEY (act_id),
     CONSTRAINT fk_activity_user FOREIGN KEY (act_user_id) 
-    REFERENCES users(use_id) 
-    ON DELETE RESTRICT 
-    ON UPDATE CASCADE,
+        REFERENCES users(use_id) 
+        ON DELETE RESTRICT 
+        ON UPDATE CASCADE,
     CONSTRAINT fk_activity_period FOREIGN KEY (act_period_id) 
-    REFERENCES periods(per_id) 
-    ON DELETE CASCADE 
-    ON UPDATE CASCADE
+        REFERENCES periods(per_id) 
+        ON DELETE CASCADE 
+        ON UPDATE CASCADE,
+    CONSTRAINT fk_activity_last_admin FOREIGN KEY (act_last_admin_id)
+        REFERENCES admins(adm_id)
+        ON DELETE SET NULL
+        ON UPDATE CASCADE,
+    CONSTRAINT chk_activity_dates CHECK (act_date_start <= act_date_end),
+    CONSTRAINT chk_activity_hours CHECK (act_hours > 0),
+    INDEX idx_act_area (act_area),
+    INDEX idx_activities_period (act_period_id),
+    INDEX idx_act_user (act_user_id),
+    INDEX idx_act_status (act_status)
 );
 
-CREATE TABLE collectives (
-    col_id INT NOT NULL AUTO_INCREMENT,
-    col_event VARCHAR(100) NOT NULL,
-    col_institution VARCHAR(100) NOT NULL,
-    col_place VARCHAR(100) NOT NULL,
-    col_hours INT NOT NULL,
-    col_date DATE NOT NULL,
-    col_authorization VARCHAR(100) NOT NULL,
-    col_signatures_format VARCHAR(100) NOT NULL,
-    col_evidence JSON NOT NULL,
-    col_area ENUM('dp', 'rs', 'cee', 'fci', 'ac') NOT NULL,
-    col_status ENUM('approval', 'pending', 'rejected') NOT NULL,
-    col_created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    col_updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    col_user_id INT NOT NULL,
-    col_period_id INT NOT NULL,
-    PRIMARY KEY (col_id),
-    CONSTRAINT fk_collective_user FOREIGN KEY (col_user_id) 
-    REFERENCES users(use_id) 
-    ON DELETE RESTRICT 
-    ON UPDATE CASCADE,
-    CONSTRAINT fk_collective_period FOREIGN KEY (col_period_id) 
-    REFERENCES periods(per_id) 
-    ON DELETE CASCADE 
-    ON UPDATE CASCADE
-);
-
--- Crear tabla contact para gestión de contactos administrativos
-CREATE TABLE contact (
+-- =========================
+-- TABLA DE CONTACTOS ADMINISTRATIVOS
+-- =========================
+CREATE TABLE IF NOT EXISTS contact (
     con_id INT NOT NULL AUTO_INCREMENT,
     con_user_id INT NOT NULL,
     con_admin_id INT NOT NULL,
     con_period_id INT NOT NULL,
     con_activity_id INT,
-    con_collective_id INT,
     con_description TEXT NOT NULL,
     con_observations TEXT,
     con_status ENUM('pending', 'in_progress', 'resolved', 'cancelled') NOT NULL DEFAULT 'pending',
     con_created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     con_updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (con_id),
-    
-    -- Relaciones con otras tablas
     CONSTRAINT fk_contact_user FOREIGN KEY (con_user_id) 
-    REFERENCES users(use_id) 
-    ON DELETE RESTRICT 
-    ON UPDATE CASCADE,
-    
+        REFERENCES users(use_id) 
+        ON DELETE RESTRICT 
+        ON UPDATE CASCADE,
     CONSTRAINT fk_contact_admin FOREIGN KEY (con_admin_id) 
-    REFERENCES admins(adm_id) 
-    ON DELETE RESTRICT 
-    ON UPDATE CASCADE,
-    
+        REFERENCES admins(adm_id) 
+        ON DELETE RESTRICT 
+        ON UPDATE CASCADE,
     CONSTRAINT fk_contact_period FOREIGN KEY (con_period_id) 
-    REFERENCES periods(per_id) 
-    ON DELETE RESTRICT 
-    ON UPDATE CASCADE,
-    
+        REFERENCES periods(per_id) 
+        ON DELETE CASCADE
+        ON UPDATE CASCADE,
     CONSTRAINT fk_contact_activity FOREIGN KEY (con_activity_id) 
-    REFERENCES activities(act_id) 
-    ON DELETE CASCADE
-    ON UPDATE CASCADE,
-
-    CONSTRAINT fk_contact_collective FOREIGN KEY (con_collective_id)
-    REFERENCES collectives(col_id)
-    ON DELETE CASCADE
-    ON UPDATE CASCADE
+        REFERENCES activities(act_id) 
+        ON DELETE SET NULL
+        ON UPDATE CASCADE,
+    CONSTRAINT unique_activity_contact UNIQUE (con_user_id, con_period_id, con_activity_id),
+    INDEX idx_contact_user (con_user_id),
+    INDEX idx_contact_admin (con_admin_id),
+    INDEX idx_contact_period (con_period_id),
+    INDEX idx_contact_status (con_status)
 );
 
--- Indices para optimizar búsquedas frecuentes
-CREATE INDEX idx_use_nua ON users(use_nua);
-CREATE INDEX idx_use_email ON users(use_email);
-CREATE INDEX idx_act_area ON activities(act_area);
-CREATE INDEX idx_col_area ON collectives(col_area);
-CREATE INDEX idx_activities_period ON activities(act_period_id);
-CREATE INDEX idx_collectives_period ON collectives(col_period_id);
-CREATE INDEX idx_act_user ON activities(act_user_id);
-CREATE INDEX idx_col_user ON collectives(col_user_id);
-CREATE INDEX idx_per_status ON periods(per_status);
-CREATE INDEX idx_act_status ON activities(act_status);
-CREATE INDEX idx_col_status ON collectives(col_status);
-CREATE INDEX idx_contact_user ON contact(con_user_id);
-CREATE INDEX idx_contact_admin ON contact(con_admin_id);
-CREATE INDEX idx_contact_period ON contact(con_period_id);
-CREATE INDEX idx_contact_status ON contact(con_status);
+-- =========================
+-- DATOS DE PRUEBA
+-- =========================
 
--- Restricciones UNIQUE
-ALTER TABLE users ADD CONSTRAINT unique_use_nua UNIQUE (use_nua);
-ALTER TABLE users ADD CONSTRAINT unique_use_email UNIQUE (use_email);
-ALTER TABLE admins ADD CONSTRAINT unique_adm_email UNIQUE (adm_email);
-ALTER TABLE periods ADD CONSTRAINT unique_per_name UNIQUE (per_name);
+-- Administradores
+INSERT INTO admins (adm_email, adm_password, adm_name, adm_last_name, adm_second_last_name, adm_phone, adm_role) VALUES
+('superadmin@unach.mx', '$2a$10$superadmin', 'Super', 'Admin', '', '4611000000', 'superadmin'),
+('admin1@unach.mx', '$2a$10$admin1', 'Ana', 'Ramírez', 'Gómez', '4611000001', 'admin'),
+('validador1@unach.mx', '$2a$10$validador1', 'Luis', 'Martínez', '', '4611000002', 'validador'),
+('consulta1@unach.mx', '$2a$10$consulta1', 'Sofía', 'Hernández', '', '4611000003', 'consulta');
 
--- Restricciones CHECK para validación de datos
-ALTER TABLE periods ADD CONSTRAINT chk_period_dates CHECK (per_date_start < per_date_end);
-ALTER TABLE activities ADD CONSTRAINT chk_activity_dates CHECK (act_date_start <= act_date_end);
-ALTER TABLE activities ADD CONSTRAINT chk_activity_hours CHECK (act_hours > 0);
-ALTER TABLE collectives ADD CONSTRAINT chk_collective_hours CHECK (col_hours > 0);
-
--- Crear trigger para verificar antes de insertar
-DELIMITER //
-CREATE TRIGGER check_contact_insert BEFORE INSERT ON contact
-FOR EACH ROW
-BEGIN
-    IF NEW.con_activity_id IS NOT NULL AND NEW.con_collective_id IS NOT NULL THEN
-        SIGNAL SQLSTATE '45000' 
-        SET MESSAGE_TEXT = 'Un contacto solo puede estar asociado a una actividad O a un colectivo, pero no a ambos';
-    END IF;
-END//
-DELIMITER ;
-
--- Crear trigger para verificar antes de actualizar
-DELIMITER //
-CREATE TRIGGER check_contact_update BEFORE UPDATE ON contact
-FOR EACH ROW
-BEGIN
-    IF NEW.con_activity_id IS NOT NULL AND NEW.con_collective_id IS NOT NULL THEN
-        SIGNAL SQLSTATE '45000' 
-        SET MESSAGE_TEXT = 'Un contacto solo puede estar asociado a una actividad O a un colectivo, pero no a ambos';
-    END IF;
-END//
-DELIMITER ;
-
--- Script para insertar datos de prueba en la base de datos proyecto_cafe
-
--- Datos para la tabla admins
-INSERT INTO admins (adm_email, adm_password, adm_name, adm_last_name, adm_second_last_name, adm_phone) VALUES
-('admin.principal@cafe.uaa.mx', '$2a$10$1qAz2wSx3eDc4rFv5tGb5e84HFHpxx.M7TPvBkx', 'María', 'González', 'Sánchez', '4491234567'),
-('admin.soporte@cafe.uaa.mx', '$2a$10$1qAz2wSx3eDc4rFv5tGb5e84HFmS8uTX2BkSZQT', 'Juan', 'Pérez', 'López', '4499876543'),
-('admin.sistemas@cafe.uaa.mx', '$2a$10$1qAz2wSx3eDc4rFv5tGb5e84HF.9oaji2qbWpKKR', 'Roberto', 'Martínez', 'Flores', '4492345678'),
-('coordinador@cafe.uaa.mx', '$2a$10$1qAz2wSx3eDc4rFv5tGb5e84HFow02pzixJZMG', 'Laura', 'Ramírez', 'Torres', '4498765432'),
-('director@cafe.uaa.mx', '$2a$10$1qAz2wSx3eDc4rFv5tGb5e84HFpow8ZahJKimgh', 'Carlos', 'Hernández', 'García', '4493456789');
-
--- Datos para la tabla periods
+-- Periodos (EJ: Enero-Julio, AD: Agosto-Diciembre, AA: año, 01: consecutivo, E: egresados)
 INSERT INTO periods (per_name, per_date_start, per_date_end, per_exclusive, per_status, per_create_admin_id) VALUES
-('EJ24-1E', '2024-01-15', '2024-06-30', TRUE, 'active', 1),
-('AJ24-2E', '2024-07-01', '2024-12-15', FALSE, 'pending', 2),
-('EJ25-1E', '2025-01-15', '2025-06-30', TRUE, 'pending', 1),
-('AJ23-2E', '2023-07-01', '2023-12-15', FALSE, 'ended', 3),
-('EJ23-1E', '2023-01-16', '2023-06-29', TRUE, 'ended', 4);
+('EJ24-01', '2024-01-15', '2024-07-01', 0, 'active', 1),
+('AD24-01', '2024-08-01', '2024-12-15', 0, 'pending', 2),
+('EJ24-02E', '2024-01-15', '2024-07-01', 1, 'pending', 1);
 
--- Datos para la tabla users (estudiantes y profesores)
-INSERT INTO users (use_nua, use_name, use_last_name, use_second_last_name, use_career, use_phone, use_email, use_password, use_is_teacher) VALUES
--- Estudiantes
-(269123, 'Ana', 'López', 'Martínez', 'LIME', '4491122334', 'ana.lopez@edu.uaa.mx', '$2a$10$xJz2wSx3eDc4rFv5tGb5e84HFqertyw22BkSZQT', FALSE),
-(272345, 'Miguel', 'García', 'Rodríguez', 'LIE', '4492233445', 'miguel.garcia@edu.uaa.mx', '$2a$10$2Ccx3wSx3eDc4rFv5tGb5e84HFghy6tywpKKR', FALSE),
-(265678, 'Sofía', 'Hernández', 'Pérez', 'LICE', '4493344556', 'sofia.hernandez@edu.uaa.mx', '$2a$10$3q3z2wSx3eDc4rFv5tGb5e84HFp09jKimgh', FALSE),
-(277890, 'Daniel', 'Torres', 'Gómez', 'LIMT', '4494455667', 'daniel.torres@edu.uaa.mx', '$2a$10$4yAt2wSx3eDc4rFv5tGb5e84HF09utX2BkSZQT', FALSE),
-(271234, 'Laura', 'Ramírez', 'Sánchez', 'LISC', '4495566778', 'laura.ramirez@edu.uaa.mx', '$2a$10$5U2t2wSx3eDc4rFv5tGb5e84HFBw22pzixJZMG', FALSE),
-(268901, 'Carlos', 'Flores', 'Vargas', 'LGE', '4496677889', 'carlos.flores@edu.uaa.mx', '$2a$10$6z1q2wSx3eDc4rFv5tGb5e84HFpow8ZahJKimgh', FALSE),
-(273456, 'Gabriela', 'Vázquez', 'Morales', 'LAD', '4497788990', 'gabriela.vazquez@edu.uaa.mx', '$2a$10$7WA2wSx3eDc4rFv5tGb5e84HFmS8uTX2BkSZQT', FALSE),
-(274567, 'Eduardo', 'Castro', 'Luna', 'LIDIA', '4498899001', 'eduardo.castro@edu.uaa.mx', '$2a$10$8B4q2wSx3eDc4rFv5tGb5e84HFpxx.M7TPvBkx', FALSE),
--- Profesores
-(123456, 'Alejandro', 'Méndez', 'Ríos', NULL, '4491234987', 'alejandro.mendez@edu.uaa.mx', '$2a$10$9z1q2wSx3eDc4rFv5tGb5e84HFBw22pzixJZMG', TRUE),
-(134567, 'Patricia', 'Jiménez', 'Ortiz', NULL, '4492345098', 'patricia.jimenez@edu.uaa.mx', '$2a$10$0UYt2wSx3eDc4rFv5tGb5e84HF.9oaji2qbWpKKR', TRUE);
+-- Usuarios
+INSERT INTO users (use_nua, use_name, use_last_name, use_second_last_name, use_career, use_phone, use_email, use_password, use_is_teacher, use_campus) VALUES
+(20240001, 'Carlos', 'López', 'Mendoza', 'LIM', '4612000001', 'carlos.lopez@unach.mx', '$2a$10$carlos', 0, 'Salamanca'),
+(20240002, 'María', 'García', 'Sánchez', 'LIE', '4612000002', 'maria.garcia@unach.mx', '$2a$10$maria', 0, 'Yuriria'),
+(20240003, 'José', 'Martínez', 'Pérez', 'LICE', '4612000003', 'jose.martinez@unach.mx', '$2a$10$jose', 0, 'Salamanca'),
+(20240004, 'Laura', 'Hernández', 'Ruiz', 'LIMT', '4612000004', 'laura.hernandez@unach.mx', '$2a$10$laura', 0, 'Yuriria');
 
--- Datos para la tabla activities
-INSERT INTO activities (act_name, act_speaker, act_description, act_date_start, act_date_end, act_hours, act_institution, act_evidence, act_area, act_status, act_user_id, act_period_id) VALUES
-('Conferencia Inteligencia Artificial', 'Dr. Manuel Cortés', 'Conferencia sobre los avances recientes en inteligencia artificial y su aplicación en la educación', '2024-02-15', '2024-02-15', 4, 'Universidad Autónoma de Aguascalientes', '{"constancia": "constancia_ia.pdf", "fotos": ["foto1.jpg", "foto2.jpg"]}', 'fci', 'approval', 1, 1),
-('Taller de Diseño Web', 'Mtra. Lucía Fernández', 'Taller práctico para aprender a diseñar sitios web responsivos con las últimas tecnologías', '2024-03-10', '2024-03-12', 12, 'Universidad Autónoma de Aguascalientes', '{"constancia": "constancia_web.pdf", "proyecto": "proyecto_final.zip"}', 'dp', 'approval', 2, 1),
-('Seminario de Investigación Educativa', 'Dr. Ricardo Sánchez', 'Seminario orientado a métodos de investigación aplicados a la educación', '2024-04-05', '2024-04-06', 8, 'Instituto de Investigación Educativa', '{"constancia": "constancia_seminario.pdf"}', 'rs', 'pending', 3, 1),
-('Curso de Herramientas Digitales', 'Ing. Carmen Ortiz', 'Curso intensivo sobre herramientas digitales para la docencia en línea', '2024-05-20', '2024-05-22', 15, 'Centro de Capacitación Docente', '{"constancia": "constancia_herramientas.pdf", "material": "material_curso.pdf"}', 'fci', 'approval', 4, 1),
-('Congreso de Innovación Educativa', 'Varios ponentes', 'Congreso internacional sobre nuevas metodologías y tecnologías en la educación', '2023-09-15', '2023-09-17', 20, 'Asociación de Innovación Educativa', '{"constancia": "constancia_congreso.pdf", "memoria": "memoria_congreso.pdf"}', 'cee', 'approval', 5, 4),
-('Workshop de Creatividad', 'Lic. Antonio Mendoza', 'Workshop para desarrollar habilidades creativas aplicadas a la enseñanza', '2023-10-10', '2023-10-10', 5, 'Centro Cultural Universitario', '{"constancia": "constancia_workshop.pdf", "proyecto": "proyecto_creatividad.pdf"}', 'ac', 'rejected', 6, 4),
-('Curso de Estrategias Didácticas', 'Dra. Silvia Torres', 'Curso sobre estrategias didácticas innovadoras para el aula', '2023-11-05', '2023-11-07', 12, 'Facultad de Educación', '{"constancia": "constancia_estrategias.pdf"}', 'dp', 'approval', 7, 4),
-('Diplomado en Evaluación Educativa', 'Varios especialistas', 'Diplomado enfocado en técnicas y métodos de evaluación en educación superior', '2023-08-01', '2023-12-01', 120, 'Universidad Autónoma de Aguascalientes', '{"constancia": "constancia_diplomado.pdf", "proyecto_final": "evaluacion_final.pdf"}', 'rs', 'pending', 8, 4);
+-- Actividades
+INSERT INTO activities (act_name, act_date_start, act_date_end, act_hours, act_institution, act_evidence, act_area, act_status, act_observations, act_last_admin_id, act_user_id, act_period_id) VALUES
+('Taller de Innovación', '2024-02-10', '2024-02-12', 12, 'UNACH', '{"fotos":["/evidence/innovacion1.webp"]}', 'DP', 'approval', 'Documentación completa', 2, 1, 1),
+('Seminario de Liderazgo', '2024-03-05', '2024-03-07', 10, 'UNACH', '{"fotos":["/evidence/liderazgo1.webp"]}', 'CEE', 'pending', 'En revisión', 3, 2, 1),
+('Foro de Educación', '2024-04-15', '2024-04-16', 8, 'UNACH', '{"fotos":["/evidence/educacion1.webp"]}', 'RS', 'rejected', 'Falta evidencia', 2, 3, 1),
+('Curso de Tecnología', '2024-09-10', '2024-09-12', 15, 'UNACH', '{"fotos":["/evidence/tecnologia1.webp"]}', 'FCI', 'pending', '', 2, 1, 2);
 
--- Datos para la tabla collectives
-INSERT INTO collectives (col_event, col_institution, col_place, col_hours, col_date, col_authorization, col_signatures_format, col_evidence, col_area, col_status, col_user_id, col_period_id) VALUES
-('Jornada de Inclusión Digital', 'Universidad Autónoma de Aguascalientes', 'Auditorio Central', 6, '2024-02-28', 'JDGT/2024-028', 'formato_firmas_jid.pdf', '{"registro": "registro_asistentes.pdf", "fotos": ["jornada1.jpg", "jornada2.jpg"]}', 'fci', 'approval', 1, 1),
-('Taller Colectivo de Programación', 'Facultad de Sistemas', 'Laboratorio A', 8, '2024-03-15', 'TCPT/2024-045', 'formato_firmas_tcp.pdf', '{"registro": "lista_participantes.pdf", "codigo": "proyectos.zip"}', 'dp', 'pending', 2, 1),
-('Encuentro de Estudiantes de Educación', 'Departamento de Educación', 'Sala Magna', 5, '2024-04-20', 'EEE/2024-067', 'formato_firmas_eee.pdf', '{"memoria": "memoria_encuentro.pdf", "fotos": ["encuentro1.jpg"]}', 'rs', 'approval', 3, 1),
-('Foro de Innovación Tecnológica', 'Centro de Tecnología Educativa', 'Centro de Congresos', 7, '2023-09-25', 'FIT/2023-089', 'formato_firmas_fit.pdf', '{"registro": "asistentes_foro.pdf", "presentaciones": "ponencias.zip"}', 'fci', 'pending', 4, 4),
-('Festival Cultural Universitario', 'Departamento de Extensión Cultural', 'Plaza Central', 10, '2023-10-15', 'FCU/2023-103', 'formato_firmas_fcu.pdf', '{"programa": "programa_actividades.pdf", "fotos": ["festival1.jpg", "festival2.jpg"]}', 'ac', 'approval', 5, 4),
-('Simposio de Investigación Educativa', 'Instituto de Investigación', 'Auditorio 2', 12, '2023-11-10', 'SIE/2023-128', 'formato_firmas_sie.pdf', '{"memoria": "memoria_simposio.pdf", "ponencias": "ponencias_simposio.zip"}', 'cee', 'approval', 6, 4);
-
--- Datos de ejemplo para la tabla contact
-INSERT INTO contact (con_user_id, con_admin_id, con_period_id, con_activity_id, con_collective_id, con_description, con_status) VALUES
-(3, 1, 1, 3, NULL, 'El estudiante necesita asesoría adicional sobre los requisitos del seminario', 'pending'),
-(6, 2, 4, 6, NULL, 'Revisar documentación incompleta del workshop', 'in_progress'),
-(4, 3, 1, NULL, 4, 'Solicitud de extensión para entrega de evidencias', 'resolved'),
-(2, 1, 1, NULL, 3, 'Dudas sobre el proceso de validación de horas', 'pending'),
-(5, 4, 4, 5, NULL, 'Incongruencias en la documentación presentada', 'in_progress');
+-- Contactos administrativos
+INSERT INTO contact (con_user_id, con_admin_id, con_period_id, con_activity_id, con_description, con_observations, con_status) VALUES
+(1, 2, 1, 1, 'Revisión de documentación', 'Todo correcto', 'resolved'),
+(2, 3, 1, 2, 'Validación de actividad', 'En proceso', 'in_progress');
