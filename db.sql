@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS admins (
     adm_last_name VARCHAR(50) NOT NULL,
     adm_second_last_name VARCHAR(50),
     adm_phone VARCHAR(15) NOT NULL,
+    adm_active BOOL NOT NULL DEFAULT 1,
     adm_role ENUM('superadmin', 'admin', 'validador', 'consulta') NOT NULL DEFAULT 'admin', -- Sistema de privilegios
     adm_created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     adm_updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -20,6 +21,13 @@ CREATE TABLE IF NOT EXISTS admins (
     CONSTRAINT unique_adm_email UNIQUE (adm_email),
     INDEX idx_adm_email (adm_email)
 );
+
+/*
+    superadmin: Acceso total al sistema, puede gestionar todos los administradores, periodos, usuarios y actividades.
+    admin: Puede gestionar periodos, usuarios y actividades, pero no puede crear o eliminar administradores.
+    validador: Puede validar actividades y gestionar contactos administrativos, pero no puede crear o eliminar periodos o administradores.
+    consulta: Puede consultar actividades y periodos, pero no puede realizar modificaciones.
+*/
 
 -- =========================
 -- TABLA DE PERIODOS

@@ -1,29 +1,34 @@
-const mysql = require('mysql');
-const { promisify } = require('util');
+const mysql = require('mysql')
+const { promisify } = require('util')
+require('dotenv').config() // Carga las variables de entorno desde .env
 
-// Promisify es un módulo para manejo de promesas (operaciones asíncronas)
+/**
+ * Configuración de la conexión a la base de datos MySQL usando variables de entorno.
+ * Si alguna variable no está definida, se usan valores por defecto.
+ */
+const connection = mysql.createPool({
+  host: process.env.DB_HOST || 'localhost',
+  user: process.env.DB_USER || 'cafe',
+  password: process.env.DB_PASSWORD || '123456',
+  database: process.env.DB_NAME || 'proyecto_cafe'
+})
 
-// Configurar la conexión a la base de datos
-const connection = mysql.createPool(
-  {
-    host: 'localhost',
-    user: 'cafe',
-    password: '123456',
-    database: 'proyecto_cafe'
+/**
+ * Verifica la conexión inicial a la base de datos.
+ */
+connection.getConnection((err, conn) => {
+  if (err) {
+    console.log('ERROR AL CONECTAR DB =>', err)
   }
-)
-
-connection.getConnection ((err, conn) => {
-    if (err)
-      console.log('ERROR AL CONECTAR DB => ', err)
-
-    if (conn)
-      console.log('DB CONECTADA')
-
-    return
+  if (conn) {
+    console.log('DB CONECTADA\n')
+    conn.release()
   }
-)
+})
 
+/**
+ * Permite usar promesas en las consultas con connection.query.
+ */
 connection.query = promisify(connection.query)
 
 module.exports = connection

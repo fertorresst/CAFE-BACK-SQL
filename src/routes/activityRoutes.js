@@ -1,5 +1,6 @@
 const express = require("express")
 const router = express.Router()
+
 const {
   getActivitiesByPeriod,
   updateActivityStatus,
@@ -7,6 +8,8 @@ const {
   getActivitiesByUserId,
   deleteActivity
 } = require("../controller/activitiesController")
+
+const { authMiddleware } = require('../auth/authMiddleware')
 
 router.get("/get-activities-by-period/:id", getActivitiesByPeriod)
 router.put("/update-activity/:activityId", updateActivity)

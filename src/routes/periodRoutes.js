@@ -1,5 +1,6 @@
 const express = require("express")
 const router = express.Router()
+
 const {
   getAllPeriods,
   getPeriodInfo,
@@ -11,6 +12,8 @@ const {
   getAreaCountsByPeriodId,
   getPeriodForDownload
 } = require("../controller/periodController")
+
+const { authMiddleware } = require('../auth/authMiddleware')
 
 router.get("/get-all-periods", getAllPeriods)
 router.get("/get-period-info/:id", getPeriodInfo)

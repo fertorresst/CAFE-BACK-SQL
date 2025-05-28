@@ -62,6 +62,8 @@ class Contact extends IContact {
           -- Datos del administrador
           a.adm_id,
           a.adm_name AS admin_name,
+          a.adm_last_name AS admin_last_name,
+          a.adm_second_last_name AS admin_second_last_name,
           -- Datos del periodo
           p.per_id,
           p.per_name AS period_name,
@@ -89,6 +91,7 @@ class Contact extends IContact {
       }
       return contacts.map(contact => {
         const userFullName = `${contact.user_name} ${contact.user_last_name} ${contact.user_second_last_name || ''}`.trim()
+        const adminFullName = `${contact.admin_name} ${contact.admin_last_name || ''} ${contact.admin_second_last_name || ''}`.trim()
         let relatedItem = null
         if (contact.act_id) {
           relatedItem = {
@@ -117,7 +120,7 @@ class Contact extends IContact {
           },
           admin: {
             id: contact.adm_id,
-            name: contact.admin_name
+            name: adminFullName
           },
           relatedItem
         }

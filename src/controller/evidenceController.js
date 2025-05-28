@@ -2,6 +2,7 @@ const { convertToWebp } = require('../utils/imageHelper')
 const Activities = require('../models/activitiesModel')
 const fs = require('fs')
 const path = require('path')
+const sharp = require('sharp')
 
 /**
  * Crea una nueva actividad individual con evidencias (imágenes webp).
@@ -10,23 +11,30 @@ const path = require('path')
  */
 const createActivityWithEvidence = async (req, res) => {
   try {
-    // Procesar imágenes
     const files = req.files || []
     const evidenceLinks = []
     for (const file of files) {
       const url = await convertToWebp(file.path, file.originalname)
       evidenceLinks.push(url)
+      // Elimina el archivo temporal con un pequeño delay
+      setTimeout(() => {
+        fs.unlink(file.path, err => {
+          if (err) {
+            console.error(`No se pudo eliminar el archivo temporal: ${file.path}`, err.message)
+          }
+        })
+      }, 200)
     }
 
     // Procesar datos de la actividad (vienen en req.body)
     const {
       name, dateStart, dateEnd, hours, institution,
-      area, status, observations, userId, periodId, lastAdminId
+      area, status, userId, periodId
     } = req.body
 
     // Validar campos obligatorios
     if (!name || !dateStart || !dateEnd || !hours || !institution ||
-        !area || !status || !userId || !periodId || !lastAdminId) {
+        !area || !status || !userId || !periodId) {
       return res.status(400).json({
         success: false,
         message: 'FALTAN CAMPOS OBLIGATORIOS PARA CREAR LA ACTIVIDAD'
@@ -46,8 +54,6 @@ const createActivityWithEvidence = async (req, res) => {
       evidence: JSON.stringify(evidence),
       area,
       status,
-      observations,
-      lastAdminId,
       userId,
       periodId
     })
@@ -73,9 +79,20 @@ const createActivityWithEvidence = async (req, res) => {
 const updateActivityEvidence = async (req, res) => {
   try {
     const { activityId } = req.params
+
+    // Datos de la actividad (vienen en req.body)
+    const activityData = {
+      name: req.body.name,
+      dateStart: req.body.dateStart,
+      dateEnd: req.body.dateEnd,
+      hours: req.body.hours,
+      institution: req.body.institution,
+      area: req.body.area,
+    }
+
     // URLs de evidencias que el usuario quiere conservar (enviar como JSON.stringify([...]) desde el front)
     const keepEvidence = req.body.keepEvidence ? JSON.parse(req.body.keepEvidence) : []
-
+    
     // Procesar nuevas imágenes (si las hay)
     const files = req.files || []
     const newEvidenceLinks = []
@@ -115,7 +132,8 @@ const updateActivityEvidence = async (req, res) => {
 
     // Actualizar en la base de datos
     await Activities.updateActivityEvidence(activityId, updatedEvidence)
-
+    await Activities.updateActivity(activityId, activityData)
+    
     res.json({
       success: true,
       message: 'ACTIVIDAD ACTUALIZADA CON ÉXITO',
@@ -124,12 +142,6 @@ const updateActivityEvidence = async (req, res) => {
   } catch (err) {
     res.status(500).json({ success: false, message: err.message })
   }
-}
-
-// Método auxiliar para obtener la actividad cruda (sin formatear)
-Activities.getActivityRaw = async function(activityId) {
-  const query = 'SELECT * FROM activities WHERE act_id = ?'
-  return db.query(query, [activityId])
 }
 
 module.exports = { createActivityWithEvidence, updateActivityEvidence }

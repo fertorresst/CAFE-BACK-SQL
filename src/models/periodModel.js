@@ -1,5 +1,7 @@
 const db = require('../config/mysql')
 const IPeriod = require('../interfaces/IPeriod')
+const fs = require('fs')
+const path = require('path')
 
 /**
  * Clase para gestionar periodos en el sistema
@@ -115,15 +117,20 @@ class Period extends IPeriod {
       const nameCheckQuery = 'SELECT per_id FROM periods WHERE per_name = ?'
       const nameCheck = await db.query(nameCheckQuery, [name])
       if (nameCheck && nameCheck.length > 0) throw new Error('YA EXISTE UN PERIODO CON ESTE NOMBRE')
+
+      // --- Cambia aquí: solo verifica solapamiento con el mismo tipo de periodo ---
       const query = `
         SELECT per_id, per_name, per_date_start, per_date_end 
         FROM periods 
-        WHERE (per_date_start <= ? AND per_date_end >= ?) 
-           OR (per_date_start <= ? AND per_date_end >= ?) 
-           OR (per_date_start >= ? AND per_date_end <= ?)
+        WHERE per_exclusive = ?
+          AND (
+            (per_date_start <= ? AND per_date_end >= ?) 
+            OR (per_date_start <= ? AND per_date_end >= ?) 
+            OR (per_date_start >= ? AND per_date_end <= ?)
+          )
       `
       const existingPeriods = await db.query(query, [
-        newEndDate, newStartDate,
+        exclusive, newEndDate, newStartDate,
         newEndDate, newEndDate,
         newStartDate, newEndDate
       ])
@@ -131,6 +138,8 @@ class Period extends IPeriod {
         const conflictingPeriod = existingPeriods[0]
         throw new Error(`EL PERIODO SE SOLAPA CON EL PERIODO EXISTENTE: ${conflictingPeriod.per_name} (${conflictingPeriod.per_date_start.toISOString().split('T')[0]} - ${conflictingPeriod.per_date_end.toISOString().split('T')[0]})`)
       }
+      // --- Fin cambio ---
+
       const insertQuery = `
         INSERT INTO periods 
         (per_name, per_date_start, per_date_end, per_exclusive, per_status, per_create_admin_id) 
@@ -153,8 +162,40 @@ class Period extends IPeriod {
    */
   static async deletePeriod(id) {
     try {
-      const query = 'DELETE FROM periods WHERE per_id = ?'
-      await db.query(query, [id])
+      // 1. Obtener todas las actividades del periodo
+      const activitiesQuery = 'SELECT act_evidence FROM activities WHERE act_period_id = ?'
+      const activities = await db.query(activitiesQuery, [id])
+
+      // 2. Eliminar imágenes asociadas a cada actividad
+      for (const activity of activities) {
+        if (activity.act_evidence) {
+          try {
+            const evidenceObj = JSON.parse(activity.act_evidence)
+            const evidenceLinks = Object.values(evidenceObj).flat().filter(Boolean)
+            for (const url of evidenceLinks) {
+              if (typeof url === 'string' && url.startsWith('/evidence/')) {
+                const filePath = path.join(__dirname, '../../uploads', url)
+                fs.unlink(filePath, err => {
+                  if (err) {
+                    console.error(`NO SE PUDO ELIMINAR LA EVIDENCIA: ${filePath}`, err.message)
+                  }
+                })
+              }
+            }
+          } catch (e) {
+            console.error('ERROR AL ELIMINAR EVIDENCIAS FÍSICAS:', e.message)
+          }
+        }
+      }
+
+      // 3. Eliminar las actividades asociadas al periodo
+      const deleteActivitiesQuery = 'DELETE FROM activities WHERE act_period_id = ?'
+      await db.query(deleteActivitiesQuery, [id])
+
+      // 4. Eliminar el periodo
+      const deletePeriodQuery = 'DELETE FROM periods WHERE per_id = ?'
+      await db.query(deletePeriodQuery, [id])
+
     } catch (err) {
       console.log('ERROR =>', err)
       throw new Error(err.message || 'ERROR AL ELIMINAR EL PERIODO')
@@ -174,22 +215,39 @@ class Period extends IPeriod {
       const newEndDate = new Date(dateEnd)
       if (isNaN(newStartDate) || isNaN(newEndDate)) throw new Error('FECHAS INVÁLIDAS O VACÍAS. ASEGÚRATE DE USAR EL FORMATO CORRECTO (YYYY-MM-DD)')
       if (newStartDate >= newEndDate) throw new Error('LA FECHA DE INICIO DEBE SER MENOR A LA FECHA DE FIN')
+
+      // --- Obtén si el periodo es exclusivo ---
+      const periodQuery = 'SELECT per_exclusive FROM periods WHERE per_id = ?'
+      const [period] = await db.query(periodQuery, [id])
+      if (!period) throw new Error('PERIODO NO ENCONTRADO')
+      const exclusive = period.per_exclusive
+
+      // --- Cambia aquí: solo verifica solapamiento con el mismo tipo de periodo ---
       const query = `
         SELECT per_id, per_name, per_date_start, per_date_end 
         FROM periods 
-        WHERE (per_date_start <= ? AND per_date_end >= ?) 
-           OR (per_date_start <= ? AND per_date_end >= ?) 
-           OR (per_date_start >= ? AND per_date_end <= ?)
+        WHERE per_exclusive = ?
+          AND (
+            (per_date_start <= ? AND per_date_end >= ?) 
+            OR (per_date_start <= ? AND per_date_end >= ?) 
+            OR (per_date_start >= ? AND per_date_end <= ?)
+          )
       `
       const existingPeriods = await db.query(query, [
-        newEndDate, newStartDate,
+        exclusive, newEndDate, newStartDate,
         newEndDate, newEndDate,
         newStartDate, newEndDate
       ])
-      if (existingPeriods && existingPeriods.length > 0 && existingPeriods[0].per_id !== id) {
-        const conflictingPeriod = existingPeriods[0]
-        throw new Error(`EL PERIODO SE SOLAPA CON EL PERIODO EXISTENTE: ${conflictingPeriod.per_name} (${conflictingPeriod.per_date_start.toISOString().split('T')[0]} - ${conflictingPeriod.per_date_end.toISOString().split('T')[0]})`)
+      if (existingPeriods && existingPeriods.length > 0) {
+        // Excluye el propio periodo de la comprobación
+        const filtered = existingPeriods.filter(p => p.per_id !== id)
+        if (filtered.length > 0) {
+          const conflictingPeriod = filtered[0]
+          throw new Error(`EL PERIODO SE SOLAPA CON EL PERIODO EXISTENTE: ${conflictingPeriod.per_name} (${conflictingPeriod.per_date_start.toISOString().split('T')[0]} - ${conflictingPeriod.per_date_end.toISOString().split('T')[0]})`)
+        }
       }
+      // --- Fin cambio ---
+
       const updateQuery = `
         UPDATE periods 
         SET per_date_start = ?, per_date_end = ?

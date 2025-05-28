@@ -1,5 +1,7 @@
 const db = require("../config/mysql")
 const IActivities = require("../interfaces/IActivities")
+const fs = require('fs')
+const path = require('path')
 
 class Activities extends IActivities {
   /**
@@ -33,9 +35,8 @@ class Activities extends IActivities {
     const insertQuery = `
       INSERT INTO activities (
         act_name, act_date_start, act_date_end, act_hours, act_institution,
-        act_evidence, act_area, act_status, act_observations, act_last_admin_id,
-        act_user_id, act_period_id
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        act_evidence, act_area, act_status, act_user_id, act_period_id
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `
     await db.query(insertQuery, [
       data.name,
@@ -46,8 +47,6 @@ class Activities extends IActivities {
       data.evidence,
       data.area,
       data.status,
-      data.observations,
-      data.lastAdminId,
       data.userId,
       data.periodId
     ])
@@ -356,6 +355,7 @@ class Activities extends IActivities {
 
   /**
    * Elimina una actividad por su ID (solo si el periodo está activo)
+   * También elimina las evidencias físicas asociadas.
    * @param {number} activityId
    * @returns {Promise<boolean>}
    */
@@ -363,7 +363,7 @@ class Activities extends IActivities {
     try {
       if (!activityId) throw new Error('SE REQUIERE UN ID DE ACTIVIDAD VÁLIDO')
       const checkQuery = `
-        SELECT a.act_id, p.per_status 
+        SELECT a.act_id, a.act_evidence, p.per_status 
         FROM activities a
         INNER JOIN periods p ON a.act_period_id = p.per_id
         WHERE a.act_id = ?
@@ -373,6 +373,27 @@ class Activities extends IActivities {
       if (activityInfo.per_status !== 'active') {
         throw new Error('NO SE PUEDE ELIMINAR LA ACTIVIDAD: EL PERIODO NO ESTÁ ACTIVO')
       }
+
+      // Eliminar archivos de evidencia si existen
+      if (activityInfo.act_evidence) {
+        try {
+          const evidenceObj = JSON.parse(activityInfo.act_evidence)
+          const evidenceLinks = Object.values(evidenceObj).flat().filter(Boolean)
+          for (const url of evidenceLinks) {
+            if (typeof url === 'string' && url.startsWith('/evidence/')) {
+              const filePath = path.join(__dirname, '../../uploads', url)
+              fs.unlink(filePath, err => {
+                if (err) {
+                  console.error(`No se pudo eliminar la evidencia: ${filePath}`, err.message)
+                }
+              })
+            }
+          }
+        } catch (e) {
+          console.error('Error al eliminar evidencias físicas:', e.message)
+        }
+      }
+
       const deleteQuery = 'DELETE FROM activities WHERE act_id = ?'
       const result = await db.query(deleteQuery, [activityId])
       if (result.affectedRows === 0) throw new Error('NO SE PUDO ELIMINAR LA ACTIVIDAD')
