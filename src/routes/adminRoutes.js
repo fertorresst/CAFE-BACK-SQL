@@ -45,7 +45,7 @@ router.get('/me', authMiddleware, (req, res) => {
   // req.user viene del middleware, puedes devolver más datos si quieres
   res.json({
     success: true,
-    user: req.user
+    admin: req.user
   })
 })
 

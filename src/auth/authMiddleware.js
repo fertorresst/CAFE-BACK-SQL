@@ -39,6 +39,7 @@ const authenticateToken = (req, res, next) => {
  */
 function authMiddleware(req, res, next) {
   const token = req.cookies.token
+  console.log("🚀 ~ authMiddleware ~ token:", token)
   if (!token) return res.status(401).json({ success: false, message: 'NO AUTORIZADO' })
   try {
     req.user = jwt.verify(token, process.env.JWT_SECRET)
