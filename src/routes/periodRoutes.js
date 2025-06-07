@@ -10,10 +10,11 @@ const {
   updateStatus,
   getAllPeriodActivities,
   getAreaCountsByPeriodId,
-  getPeriodForDownload
+  getPeriodForDownload,
+  getFinalReport
 } = require("../controller/periodController")
 
-const { authMiddleware } = require('../auth/authMiddleware')
+const { adminAuthMiddleware } = require('../auth/adminAuthMiddleware')
 
 router.get("/get-all-periods", getAllPeriods)
 router.get("/get-period-info/:id", getPeriodInfo)
@@ -24,5 +25,6 @@ router.patch("/update-status", updateStatus)
 router.get("/get-all-period-activities/:id", getAllPeriodActivities)
 router.get("/get-area-counts/:id", getAreaCountsByPeriodId)
 router.get("/get-period-for-download/:id", getPeriodForDownload)
+router.get("/final-report/:periodId", getFinalReport)
 
 module.exports = router

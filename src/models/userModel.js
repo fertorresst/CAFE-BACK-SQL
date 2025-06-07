@@ -1,8 +1,9 @@
 const db = require('../config/mysql')
 const IUser = require('../interfaces/IUser')
+const bcryptjs = require('bcryptjs')
 
 class User extends IUser {
-  constructor(id, nua, name, lastName, secondLastName, career, phone, email, password, isTeacher, createdAt, updatedAt) {
+  constructor(id, nua, name, lastName, secondLastName, career, phone, email, password, createdAt, updatedAt) {
     super()
     this.id = id
     this.nua = nua
@@ -13,248 +14,312 @@ class User extends IUser {
     this.phone = phone
     this.email = email
     this.password = password
-    this.isTeacher = isTeacher
     this.createdAt = createdAt
     this.updatedAt = updatedAt
   }
 
   /**
-   * Obtiene todos los usuarios separados por rol (maestros y estudiantes)
-   * @returns {Object} Objeto con dos arreglos: teachers y students
+   * Obtiene todos los usuarios registrados en el sistema.
+   * @returns {Promise<Array>} Lista de usuarios.
    */
-  static async getUsersSeparatedByRole() {
-    try {
-      const query = `
-        SELECT 
-          use_id,
-          use_nua,
-          use_name,
-          use_last_name,
-          use_second_last_name,
-          use_career,
-          use_phone,
-          use_email,
-          use_is_teacher,
-          use_created_at,
-          use_updated_at
-        FROM 
-          users
-        ORDER BY 
-          use_last_name, 
-          use_name
-      `
-      
-      const users = await db.query(query)
-      
-      if (!users || users.length === 0) {
-        return {
-          teachers: [],
-          students: []
-        }
-      }
-      
-      // Separar usuarios en maestros y estudiantes
-      const teachers = []
-      const students = []
-      
-      users.forEach(user => {
-        // Formatear nombre completo
-        const fullName = `${user.use_name} ${user.use_last_name} ${user.use_second_last_name || ''}`.trim()
-        
-        // Formatear fechas
-        const createdAt = new Date(user.use_created_at).toISOString().split('T')[0]
-        const updatedAt = new Date(user.use_updated_at).toISOString().split('T')[0]
-        
-        // Crear objeto de usuario formateado
-        const formattedUser = {
-          id: user.use_id,
-          nua: user.use_nua,
-          name: user.use_name,
-          lastName: user.use_last_name,
-          secondLastName: user.use_second_last_name,
-          fullName: fullName,
-          career: user.use_career,
-          phone: user.use_phone,
-          email: user.use_email,
-          isTeacher: !!user.use_is_teacher, // Asegurarse de que sea booleano
-          createdAt: createdAt,
-          updatedAt: updatedAt
-        }
-        
-        // Agregar al arreglo correspondiente
-        if (user.use_is_teacher) {
-          teachers.push(formattedUser)
-        } else {
-          students.push(formattedUser)
-        }
-      })
-      
-      return {
-        teachers,
-        students
-      }
-    } 
-    catch (err) {
-      console.log('ERROR =>', err)
-      throw new Error(err.message || 'ERROR AL OBTENER LOS USUARIOS')
+  static async getAllUsers() {
+    const query = `
+      SELECT 
+        use_id,
+        use_nua,
+        use_name,
+        use_last_name,
+        use_second_last_name,
+        use_career,
+        use_phone,
+        use_email,
+        use_sede,
+        use_created_at,
+        use_updated_at
+      FROM users
+      ORDER BY use_last_name, use_name
+    `
+    const users = await db.query(query)
+    return users.map(user => ({
+      id: user.use_id,
+      nua: user.use_nua,
+      name: user.use_name,
+      lastName: user.use_last_name,
+      secondLastName: user.use_second_last_name,
+      fullName: `${user.use_name} ${user.use_last_name} ${user.use_second_last_name || ''}`.trim(),
+      career: user.use_career,
+      phone: user.use_phone,
+      email: user.use_email,
+      sede: user.use_sede,
+      createdAt: user.use_created_at
+        ? new Date(user.use_created_at).toISOString().split('T')[0]
+        : null,
+      updatedAt: user.use_updated_at
+        ? new Date(user.use_updated_at).toISOString().split('T')[0]
+        : null
+    }))
+  }
+
+  /**
+   * Crea un nuevo usuario.
+   * Valida que el NUA, correo y teléfono no estén registrados previamente.
+   * @param {Object} data - Datos del usuario.
+   * @returns {Promise<number>} ID del nuevo usuario.
+   */
+  static async createUser(data) {
+    // Validar campos requeridos
+    const requiredFields = ['nua', 'name', 'lastName', 'career', 'phone', 'email', 'password', 'sede']
+    for (const field of requiredFields) {
+      if (!data[field]) throw new Error(`EL CAMPO '${field}' ES OBLIGATORIO`)
+    }
+
+    // Validar unicidad de NUA, email y teléfono
+    const uniqueQuery = `
+      SELECT use_id FROM users WHERE use_nua = ? OR use_email = ?
+    `
+    const existing = await db.query(uniqueQuery, [data.nua, data.email])
+    if (existing.length > 0) {
+      throw new Error('EL NUA O CORREO YA ESTÁ REGISTRADO')
+    }
+
+    // Validar formato de NUA
+    if (isNaN(data.nua) || data.nua.toString().length < 6) {
+      throw new Error('EL NUA DEBE SER UN NÚMERO DE AL MENOS 6 DÍGITOS')
+    }
+
+    // Validar formato de email (dominio ugto.mx)
+    const emailRegex = /.+@ugto\.mx$/
+    if (!emailRegex.test(data.email)) {
+      throw new Error('EL CORREO ELECTRÓNICO DEBE SER INSTITUCIONAL (@ugto.mx)')
+    }
+
+    // Validar longitud del teléfono
+    if (data.phone.length < 10 || data.phone.length > 15) {
+      throw new Error('EL TELÉFONO DEBE TENER 10 DÍGITOS')
+    }
+
+    // Validar carrera
+    const validCareers = [
+        'IS75LI0103', // LICENCIATURA EN INGENIERÍA MECÁNICA
+        'IS75LI0203', // LICENCIATURA EN INGENIERÍA ELÉCTRICA
+        'IS75LI0303', // LICENCIATURA EN INGENIERÍA EN COMUNICACIONES Y ELECTRÓNICA
+        'IS75LI03Y3', // LICENCIATURA EN INGENIERÍA EN COMUNICACIONES Y ELECTRÓNICA (Yuriria)
+        'IS75LI0403', // LICENCIATURA EN INGENIERÍA EN MECATRÓNICA
+        'IS75LI0502', // LICENCIATURA EN INGENIERÍA EN SISTEMAS COMPUTACIONALES
+        'IS75LI05Y2', // LICENCIATURA EN INGENIERÍA EN SISTEMAS COMPUTACIONALES (Yuriria)
+        'IS75LI0602', // LICENCIATURA EN GESTIÓN EMPRESARIAL
+        'IS75LI06Y2', // LICENCIATURA EN GESTIÓN EMPRESARIAL (Yuriria)
+        'IS75LI0702', // LICENCIATURA EN ARTES DIGITALES
+        'IS75LI0801'  // LICENCIATURA EN INGENIERÍA DE DATOS E INTELIGENCIA ARTIFICIAL
+    ]
+    if (!validCareers.includes(data.career)) {
+      throw new Error(`CARRERA NO VALIDA.`)
+    }
+
+    // Validar sede
+    const validSedes = ['SALAMANCA', 'YURIRIA']
+    if (!validSedes.includes(data.sede.toUpperCase())) {
+      throw new Error('LA SEDE DEBE SER SALAMANCA O YURIRIA')
+    }
+
+    // Validar longitud y fortaleza de la contraseña
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/
+    if (!passwordRegex.test(data.password)) {
+      throw new Error('LA CONTRASEÑA DEBE TENER AL MENOS 8 CARACTERES, UNA MAYÚSCULA, UNA MINÚSCULA, UN NÚMERO Y UN CARÁCTER ESPECIAL')
+    }
+
+    // Encriptar la contraseña antes de guardar
+    const hashedPassword = await bcryptjs.hash(data.password, 10)
+
+    // Insertar nuevo usuario
+    const insertQuery = `
+      INSERT INTO users (
+        use_nua, use_name, use_last_name, use_second_last_name, 
+        use_career, use_phone, use_email, use_password, 
+        use_sede
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `
+    const result = await db.query(insertQuery, [
+      data.nua,
+      data.name,
+      data.lastName,
+      data.secondLastName || null,
+      data.career,
+      data.phone,
+      data.email,
+      hashedPassword,
+      data.sede.toUpperCase()
+    ])
+    return result.insertId
+  }
+
+  /**
+   * Actualiza los datos de un usuario.
+   * @param {number} id - ID del usuario a actualizar.
+   * @param {Object} data - Datos a actualizar.
+   * @returns {Promise<boolean>} true si la actualización fue exitosa.
+   */
+  static async updateUser(id, data) {
+    // Validar existencia de ID
+    if (!id) throw new Error('ID DEL USUARIO ES REQUERIDO')
+
+    // Validar campos requeridos
+    const requiredFields = ['name', 'lastName', 'career', 'phone', 'email', 'sede']
+    for (const field of requiredFields) {
+      if (!data[field]) throw new Error(`EL CAMPO '${field}' ES OBLIGATORIO`)
+    }
+
+    // Validar unicidad de email (excluyendo el propio usuario)
+    const uniqueQuery = `
+      SELECT use_id FROM users 
+      WHERE use_email = ? AND use_id <> ?
+    `
+    const existing = await db.query(uniqueQuery, [data.email, id])
+    if (existing.length > 0) {
+      throw new Error('EL CORREO ELECTRÓNICO YA ESTÁ REGISTRADO')
+    }
+
+    // Validar formato de email
+    const emailRegex = /.+@ugto\.mx$/
+    if (!emailRegex.test(data.email)) {
+      throw new Error('EL CORREO ELECTRÓNICO DEBE SER INSTITUCIONAL (@ugto.mx)')
+    }
+
+    // Validar longitud del teléfono
+    if (data.phone.length < 10 || data.phone.length > 15) {
+      throw new Error('EL TELÉFONO DEBE TENER ENTRE 10 Y 15 DÍGITOS')
+    }
+
+    // Validar carrera
+    const validCareers = ['LIM', 'LIE', 'LICE', 'LIMT', 'LISC', 'LGE', 'LAD', 'LIDIA', 'LEI']
+    if (!validCareers.includes(data.career)) {
+      throw new Error(`LA CARRERA DEBE SER UNA DE LAS SIGUIENTES: ${validCareers.join(', ')}`)
+    }
+
+    // Validar sede
+    const validSedes = ['SALAMANCA', 'YURIRIA']
+    if (!validSedes.includes(data.sede.toUpperCase())) {
+      throw new Error('LA SEDE DEBE SER SALAMANCA O YURIRIA')
+    }
+
+    // Actualizar datos
+    const updateQuery = `
+      UPDATE users SET
+        use_name = ?,
+        use_last_name = ?,
+        use_second_last_name = ?,
+        use_career = ?,
+        use_phone = ?,
+        use_email = ?,
+        use_sede = ?
+      WHERE use_id = ?
+    `
+    const result = await db.query(updateQuery, [
+      data.name,
+      data.lastName,
+      data.secondLastName || null,
+      data.career,
+      data.phone,
+      data.email,
+      data.sede.toUpperCase(),
+      id
+    ])
+    return result.affectedRows > 0
+  }
+
+  /**
+   * Elimina un usuario del sistema.
+   * @param {number} id - ID del usuario.
+   * @returns {Promise<boolean>}
+   */
+  static async deleteUser(id) {
+    if (!id) throw new Error('ID DEL USUARIO ES REQUERIDO')
+    
+    // Verificar si el usuario tiene actividades registradas
+    const checkQuery = 'SELECT COUNT(*) as count FROM activities WHERE act_user_id = ?'
+    const [result] = await db.query(checkQuery, [id])
+    
+    if (result.count > 0) {
+      throw new Error('NO SE PUEDE ELIMINAR EL USUARIO PORQUE TIENE ACTIVIDADES REGISTRADAS')
+    }
+    
+    const deleteQuery = 'DELETE FROM users WHERE use_id = ?'
+    const deleteResult = await db.query(deleteQuery, [id])
+    
+    if (deleteResult.affectedRows === 0) throw new Error('NO SE ENCONTRÓ EL USUARIO')
+    return true
+  }
+
+  /**
+   * Inicia sesión como usuario.
+   * @param {string} email - Correo electrónico.
+   * @param {string} password - Contraseña.
+   * @returns {Promise<Object>} Datos del usuario.
+   */
+  static async login(email, password) {
+    if (!email || !password) throw new Error('CORREO Y CONTRASEÑA REQUERIDOS')
+    
+    const query = `
+      SELECT 
+        use_id, use_nua, use_name, use_last_name, 
+        use_second_last_name, use_email, use_password,
+        use_career, use_sede
+      FROM users 
+      WHERE use_email = ?
+    `
+    
+    const [user] = await db.query(query, [email])
+    if (!user) throw new Error('CREDENCIALES INVÁLIDAS')
+    
+    const valid = await bcryptjs.compare(password, user.use_password)
+    if (!valid) throw new Error('CREDENCIALES INVÁLIDAS')
+    
+    // Retorna solo los datos necesarios
+    return {
+      id: user.use_id,
+      nua: user.use_nua,
+      name: user.use_name,
+      lastName: user.use_last_name,
+      secondLastName: user.use_second_last_name,
+      fullName: `${user.use_name} ${user.use_last_name} ${user.use_second_last_name || ''}`.trim(),
+      career: user.use_career,
+      email: user.use_email,
+      sede: user.use_sede
     }
   }
 
   /**
-   * Obtiene un usuario por su ID
-   * @param {number} userId - ID del usuario
-   * @returns {Object} Datos del usuario
+   * Obtiene la información de un usuario por su ID.
+   * @param {number} id - ID del usuario.
+   * @returns {Promise<Object>} Datos del usuario.
    */
-  static async getUserById(userId) {
-    try {
-      if (!userId) {
-        throw new Error('SE REQUIERE UN ID DE USUARIO VÁLIDO')
-      }
-      
-      const query = `
-        SELECT 
-          use_id,
-          use_nua,
-          use_name,
-          use_last_name,
-          use_second_last_name,
-          use_career,
-          use_phone,
-          use_email,
-          use_is_teacher,
-          use_created_at,
-          use_updated_at
-        FROM 
-          users
-        WHERE 
-          use_id = ?
-      `
-      
-      const [user] = await db.query(query, [userId])
-      
-      if (!user) {
-        throw new Error(`NO SE ENCONTRÓ EL USUARIO CON ID: ${userId}`)
-      }
-      
-      // Formatear nombre completo y fechas
-      const fullName = `${user.use_name} ${user.use_last_name} ${user.use_second_last_name || ''}`.trim()
-      const createdAt = new Date(user.use_created_at).toISOString().split('T')[0]
-      const updatedAt = new Date(user.use_updated_at).toISOString().split('T')[0]
-      
-      return {
-        id: user.use_id,
-        nua: user.use_nua,
-        name: user.use_name,
-        lastName: user.use_last_name,
-        secondLastName: user.use_second_last_name,
-        fullName: fullName,
-        career: user.use_career,
-        phone: user.use_phone,
-        email: user.use_email,
-        isTeacher: !!user.use_is_teacher,
-        createdAt: createdAt,
-        updatedAt: updatedAt
-      }
-    } 
-    catch (err) {
-      console.log('ERROR =>', err)
-      throw new Error(err.message || 'ERROR AL OBTENER EL USUARIO')
-    }
-  }
-
-  /**
-   * Busca usuarios por nombre, apellido, NUA o correo electrónico
-   * @param {string} searchTerm - Término de búsqueda
-   * @returns {Object} Objeto con dos arreglos: teachers y students que coinciden con la búsqueda
-   */
-  static async searchUsers(searchTerm) {
-    try {
-      if (!searchTerm || searchTerm.trim() === '') {
-        return await this.getUsersSeparatedByRole()
-      }
-      
-      const query = `
-        SELECT 
-          use_id,
-          use_nua,
-          use_name,
-          use_last_name,
-          use_second_last_name,
-          use_career,
-          use_phone,
-          use_email,
-          use_is_teacher,
-          use_created_at,
-          use_updated_at
-        FROM 
-          users
-        WHERE 
-          use_name LIKE ? OR
-          use_last_name LIKE ? OR
-          use_second_last_name LIKE ? OR
-          use_nua LIKE ? OR
-          use_email LIKE ?
-        ORDER BY 
-          use_last_name, 
-          use_name
-      `
-      
-      const searchPattern = `%${searchTerm}%`
-      const params = [searchPattern, searchPattern, searchPattern, searchPattern, searchPattern]
-      
-      const users = await db.query(query, params)
-      
-      if (!users || users.length === 0) {
-        return {
-          teachers: [],
-          students: []
-        }
-      }
-      
-      // Separar usuarios en maestros y estudiantes
-      const teachers = []
-      const students = []
-      
-      users.forEach(user => {
-        // Formatear nombre completo
-        const fullName = `${user.use_name} ${user.use_last_name} ${user.use_second_last_name || ''}`.trim()
-        
-        // Formatear fechas
-        const createdAt = new Date(user.use_created_at).toISOString().split('T')[0]
-        const updatedAt = new Date(user.use_updated_at).toISOString().split('T')[0]
-        
-        // Crear objeto de usuario formateado
-        const formattedUser = {
-          id: user.use_id,
-          nua: user.use_nua,
-          name: user.use_name,
-          lastName: user.use_last_name,
-          secondLastName: user.use_second_last_name,
-          fullName: fullName,
-          career: user.use_career,
-          phone: user.use_phone,
-          email: user.use_email,
-          isTeacher: !!user.use_is_teacher,
-          createdAt: createdAt,
-          updatedAt: updatedAt
-        }
-        
-        // Agregar al arreglo correspondiente
-        if (user.use_is_teacher) {
-          teachers.push(formattedUser)
-        } else {
-          students.push(formattedUser)
-        }
-      })
-      
-      return {
-        teachers,
-        students
-      }
-    } 
-    catch (err) {
-      console.log('ERROR =>', err)
-      throw new Error(err.message || 'ERROR AL BUSCAR USUARIOS')
+  static async getUserById(id) {
+    if (!id) throw new Error('ID DEL USUARIO ES REQUERIDO')
+    const query = `
+      SELECT 
+        use_id, use_nua, use_name, use_last_name, use_second_last_name,
+        use_career, use_phone, use_email, use_sede, use_created_at, use_updated_at
+      FROM users
+      WHERE use_id = ?
+    `
+    const [user] = await db.query(query, [id])
+    if (!user) throw new Error('NO SE ENCONTRÓ EL USUARIO')
+    return {
+      id: user.use_id,
+      nua: user.use_nua,
+      name: user.use_name,
+      lastName: user.use_last_name,
+      secondLastName: user.use_second_last_name,
+      career: user.use_career,
+      phone: user.use_phone,
+      email: user.use_email,
+      sede: user.use_sede,
+      createdAt: user.use_created_at
+        ? new Date(user.use_created_at).toISOString().split('T')[0]
+        : null,
+      updatedAt: user.use_updated_at
+        ? new Date(user.use_updated_at).toISOString().split('T')[0]
+        : null
     }
   }
 }

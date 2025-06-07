@@ -8,7 +8,7 @@ const {
 
 const uploadEvidence = require('../middlewares/uploadEvidence')
 
-const { authMiddleware } = require('../auth/authMiddleware')
+const { adminAuthMiddleware } = require('../auth/adminAuthMiddleware')
 
 router.post(
   "/create-activity-with-evidence",

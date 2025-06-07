@@ -32,6 +32,54 @@ class Activities extends IActivities {
    * @returns {Promise<boolean>}
    */
   static async createActivity(data) {
+    // Validar campos requeridos
+    const requiredFields = [
+      'name', 'dateStart', 'dateEnd', 'hours', 'institution',
+      'evidence', 'area', 'status', 'userId', 'periodId'
+    ]
+    for (const field of requiredFields) {
+      if (!data[field] && data[field] !== 0) {
+        throw new Error(`EL CAMPO '${field}' ES OBLIGATORIO`)
+      }
+    }
+
+    // Validar fechas
+    const startDate = new Date(data.dateStart)
+    const endDate = new Date(data.dateEnd)
+    if (isNaN(startDate) || isNaN(endDate)) {
+      throw new Error('LAS FECHAS SON INVÁLIDAS')
+    }
+    if (startDate > endDate) {
+      throw new Error('LA FECHA DE INICIO NO PUEDE SER POSTERIOR A LA FECHA DE FIN')
+    }
+
+    // Validar área
+    const validAreas = ['DP', 'RS', 'CEE', 'FCI', 'AC']
+    if (!validAreas.includes(data.area)) {
+      throw new Error(`ÁREA INVÁLIDA. DEBE SER UNA DE: ${validAreas.join(', ')}`)
+    }
+
+    // Validar status
+    const validStatuses = ['approval', 'pending', 'rejected', 'contacted']
+    if (!validStatuses.includes(data.status)) {
+      throw new Error(`ESTADO INVÁLIDO. DEBE SER UNO DE: ${validStatuses.join(', ')}`)
+    }
+
+    // Validar institution
+    if (typeof data.institution !== 'string' || data.institution.trim().length === 0) {
+      throw new Error('LA INSTITUCIÓN ES OBLIGATORIA')
+    }
+
+    // Validar evidence (debe ser un objeto o stringificable)
+    if (typeof data.evidence !== 'string') {
+      try {
+        data.evidence = JSON.stringify(data.evidence)
+      } catch {
+        throw new Error('EVIDENCIA INVÁLIDA')
+      }
+    }
+
+    // Insertar actividad
     const insertQuery = `
       INSERT INTO activities (
         act_name, act_date_start, act_date_end, act_hours, act_institution,
@@ -70,6 +118,7 @@ class Activities extends IActivities {
           u.use_last_name,
           u.use_second_last_name,
           u.use_career,
+          u.use_sede,
           u.use_email,
           u.use_phone
         FROM users u
@@ -135,6 +184,7 @@ class Activities extends IActivities {
             id: user.use_id,
             nua: user.use_nua,
             fullName,
+            sede: user.use_sede,
             career: user.use_career,
             email: user.use_email,
             phone: user.use_phone,
@@ -160,6 +210,7 @@ class Activities extends IActivities {
   static async updateActivityStatus(activityId, status, observations, lastAdminId) {
     try {
       if (!activityId) throw new Error('SE REQUIERE UN ID DE ACTIVIDAD VÁLIDO')
+      if (!lastAdminId) throw new Error('SE REQUIERE EL ID DEL ADMINISTRADOR QUE REALIZA EL CAMBIO')
       const validStatuses = ['approval', 'pending', 'rejected', 'contacted']
       if (!validStatuses.includes(status)) {
         throw new Error(`ESTADO INVÁLIDO. DEBE SER UNO DE: ${validStatuses.join(', ')}`)

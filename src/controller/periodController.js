@@ -205,6 +205,23 @@ const getPeriodForDownload = async (req, res) => {
   }
 }
 
+/**
+ * Obtiene el reporte final de un periodo.
+ * @route GET /periods/final-report/:periodId
+ */
+const getFinalReport = async (req, res) => {
+  try {
+    const { periodId } = req.params
+    const report = await Period.getFinalReport(Number(periodId))
+    res.status(200).json(report)
+  } catch (err) {
+    res.status(400).json({
+      success: false,
+      message: err.message
+    })
+  }
+}
+
 module.exports = {
   getAllPeriods,
   getPeriodInfo,
@@ -214,5 +231,6 @@ module.exports = {
   updateStatus,
   getAllPeriodActivities,
   getAreaCountsByPeriodId,
-  getPeriodForDownload
+  getPeriodForDownload,
+  getFinalReport
 }

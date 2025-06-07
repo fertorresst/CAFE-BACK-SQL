@@ -37,13 +37,18 @@ class Contact extends IContact {
    * @param {number} periodId - ID del periodo
    * @returns {Promise<Array>} Lista de contactos
    */
-  static async getContactsByPeriod(periodId) {
+  static async getContactsByPeriod(periodId, adminRole, adminId) {
     try {
       if (!periodId) {
         throw new Error('SE REQUIERE UN ID DE PERIODO VÁLIDO')
       }
 
-      const query = `
+      // Si es consulta, regresa vacío
+      if (adminRole === 'consulta') {
+        return []
+      }
+
+      let query = `
         SELECT 
           c.con_id, 
           c.con_description, 
@@ -51,7 +56,6 @@ class Contact extends IContact {
           c.con_status, 
           c.con_created_at, 
           c.con_updated_at,
-          -- Datos del usuario
           u.use_id,
           u.use_nua,
           u.use_name AS user_name,
@@ -59,15 +63,12 @@ class Contact extends IContact {
           u.use_second_last_name AS user_second_last_name,
           u.use_phone,
           u.use_email,
-          -- Datos del administrador
           a.adm_id,
           a.adm_name AS admin_name,
           a.adm_last_name AS admin_last_name,
           a.adm_second_last_name AS admin_second_last_name,
-          -- Datos del periodo
           p.per_id,
           p.per_name AS period_name,
-          -- Datos de actividad (si existe)
           ac.act_id,
           ac.act_name
         FROM contact c
@@ -76,6 +77,16 @@ class Contact extends IContact {
         INNER JOIN periods p ON c.con_period_id = p.per_id
         LEFT JOIN activities ac ON c.con_activity_id = ac.act_id
         WHERE c.con_period_id = ?
+      `
+
+      // Si es validador, solo ve sus propios contactos
+      let params = [periodId]
+      if (adminRole === 'validador') {
+        query += ' AND c.con_admin_id = ?'
+        params.push(adminId)
+      }
+
+      query += `
         ORDER BY 
           CASE c.con_status
             WHEN 'pending' THEN 1
@@ -85,7 +96,8 @@ class Contact extends IContact {
           END,
           c.con_created_at DESC
       `
-      const contacts = await db.query(query, [periodId])
+
+      const contacts = await db.query(query, params)
       if (!contacts || contacts.length === 0) {
         return []
       }

@@ -9,10 +9,11 @@ const {
   updateAdminPassword,
   setAdminActive,
   deleteAdmin,
-  loginAdmin
+  loginAdmin,
+  getAdminById
 } = require("../controller/adminController")
 
-const { authMiddleware } = require('../auth/authMiddleware')
+const { adminAuthMiddleware } = require('../auth/adminAuthMiddleware')
 
 // Obtener todos los administradores
 router.get("/get-all-admins", getAllAdmins)
@@ -37,16 +38,18 @@ router.post('/login', loginAdmin)
 
 router.post('/logout', (req, res) => {
   console.log('CERRANDO SESIÓN')
-  res.clearCookie('token')
+  res.clearCookie('admin_token')
   res.json({ success: true, message: 'SESIÓN CERRADA' })
 })
 
-router.get('/me', authMiddleware, (req, res) => {
-  // req.user viene del middleware, puedes devolver más datos si quieres
+router.get('/me', adminAuthMiddleware, (req, res) => {
   res.json({
     success: true,
-    admin: req.user
+    admin: req.admin
   })
 })
+
+// Obtener información de un administrador por ID
+router.get("/get-admin/:id", getAdminById)
 
 module.exports = router

@@ -9,7 +9,7 @@ const {
   deleteActivity
 } = require("../controller/activitiesController")
 
-const { authMiddleware } = require('../auth/authMiddleware')
+const { adminAuthMiddleware } = require('../auth/adminAuthMiddleware')
 
 router.get("/get-activities-by-period/:id", getActivitiesByPeriod)
 router.put("/update-activity/:activityId", updateActivity)

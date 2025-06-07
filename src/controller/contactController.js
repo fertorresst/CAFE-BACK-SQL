@@ -5,15 +5,30 @@ const Contact = require('../models/contactModel')
  * @route GET /contacts/period/:id
  */
 const getContactsByPeriod = async (req, res) => {
-  const { id } = req.params
+  const { periodId } = req.params
+  const { role, adminId } = req.query
+  console.log("🚀 ~ getContactsByPeriod ~ periodId, role, adminId:", periodId, role, adminId)
   try {
-    if (!id) {
+    if (!periodId) {
       return res.status(400).json({
         success: false,
         message: 'SE REQUIERE EL ID DEL PERIODO'
       })
     }
-    const contacts = await Contact.getContactsByPeriod(id)
+    if (role === 'consulta') {
+      return res.status(200).json({
+        contacts: [],
+        success: true,
+        message: 'SIN CONTACTOS PARA CONSULTA'
+      })
+    }
+    if (!adminId) {
+      return res.status(400).json({
+        success: false,
+        message: 'SE REQUIERE EL ID DEL ADMINISTRADOR'
+      })
+    }
+    const contacts = await Contact.getContactsByPeriod(periodId, role, adminId)
     res.status(200).json({
       contacts,
       success: true,

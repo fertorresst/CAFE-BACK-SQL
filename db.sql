@@ -61,12 +61,23 @@ CREATE TABLE IF NOT EXISTS users (
     use_name VARCHAR(50) NOT NULL,
     use_last_name VARCHAR(50) NOT NULL,
     use_second_last_name VARCHAR(50),
-    use_career ENUM('LIM', 'LIE', 'LICE', 'LIMT', 'LISC', 'LGE', 'LAD', 'LIDIA', 'LEI') NOT NULL,
+    use_career ENUM(
+        'IS75LI0103', -- LICENCIATURA EN INGENIERÍA MECÁNICA
+        'IS75LI0203', -- LICENCIATURA EN INGENIERÍA ELÉCTRICA
+        'IS75LI0303', -- LICENCIATURA EN INGENIERÍA EN COMUNICACIONES Y ELECTRÓNICA
+        'IS75LI03Y3', -- LICENCIATURA EN INGENIERÍA EN COMUNICACIONES Y ELECTRÓNICA (Yuriria)
+        'IS75LI0403', -- LICENCIATURA EN INGENIERÍA EN MECATRÓNICA
+        'IS75LI0502', -- LICENCIATURA EN INGENIERÍA EN SISTEMAS COMPUTACIONALES
+        'IS75LI05Y2', -- LICENCIATURA EN INGENIERÍA EN SISTEMAS COMPUTACIONALES (Yuriria)
+        'IS75LI0602', -- LICENCIATURA EN GESTIÓN EMPRESARIAL
+        'IS75LI06Y2', -- LICENCIATURA EN GESTIÓN EMPRESARIAL (Yuriria)
+        'IS75LI0702', -- LICENCIATURA EN ARTES DIGITALES
+        'IS75LI0801'  -- LICENCIATURA EN INGENIERÍA DE DATOS E INTELIGENCIA ARTIFICIAL li08y2
+    ) NOT NULL,
     use_phone VARCHAR(15) NOT NULL,
     use_email VARCHAR(100) NOT NULL,
     use_password VARCHAR(255) NOT NULL,
-    use_is_teacher BOOL NOT NULL,
-    use_campus ENUM('Salamanca', 'Yuriria') NOT NULL, -- Nueva columna para sede
+    use_sede ENUM('SALAMANCA', 'YURIRIA') NOT NULL,
     use_created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     use_updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (use_id),
@@ -155,37 +166,129 @@ CREATE TABLE IF NOT EXISTS contact (
 );
 
 -- =========================
--- DATOS DE PRUEBA
+-- ADMINISTRADORES DE PRUEBA
 -- =========================
-
--- Administradores
 INSERT INTO admins (adm_email, adm_password, adm_name, adm_last_name, adm_second_last_name, adm_phone, adm_role) VALUES
-('superadmin@unach.mx', '$2a$10$superadmin', 'Super', 'Admin', '', '4611000000', 'superadmin'),
-('admin1@unach.mx', '$2a$10$admin1', 'Ana', 'Ramírez', 'Gómez', '4611000001', 'admin'),
-('validador1@unach.mx', '$2a$10$validador1', 'Luis', 'Martínez', '', '4611000002', 'validador'),
-('consulta1@unach.mx', '$2a$10$consulta1', 'Sofía', 'Hernández', '', '4611000003', 'consulta');
+('superadmin@ugto.mx', '$2a$10$superadmin', 'Super', 'Admin', '', '4611000000', 'superadmin'),
+('admin1@ugto.mx', '$2a$10$admin1', 'Ana', 'Ramírez', 'Gómez', '4611000001', 'admin'),
+('validador1@ugto.mx', '$2a$10$validador1', 'Luis', 'Martínez', '', '4611000002', 'validador'),
+('consulta1@ugto.mx', '$2a$10$consulta1', 'Sofía', 'Hernández', '', '4611000003', 'consulta');
 
--- Periodos (EJ: Enero-Julio, AD: Agosto-Diciembre, AA: año, 01: consecutivo, E: egresados)
+-- =========================
+-- PERIODOS DE PRUEBA (3 por estado)
+-- =========================
 INSERT INTO periods (per_name, per_date_start, per_date_end, per_exclusive, per_status, per_create_admin_id) VALUES
+-- ACTIVE
 ('EJ24-01', '2024-01-15', '2024-07-01', 0, 'active', 1),
-('AD24-01', '2024-08-01', '2024-12-15', 0, 'pending', 2),
-('EJ24-02E', '2024-01-15', '2024-07-01', 1, 'pending', 1);
+('AD24-01', '2024-08-01', '2024-12-15', 0, 'active', 2),
+('EJ24-02E', '2024-01-15', '2024-07-01', 1, 'active', 1),
+-- PENDING
+('EJ24-03', '2024-01-15', '2024-07-01', 0, 'pending', 2),
+('AD24-02', '2024-08-01', '2024-12-15', 0, 'pending', 3),
+('AD24-03E', '2024-08-01', '2024-12-15', 1, 'pending', 1),
+-- ENDED
+('EJ23-01', '2023-01-15', '2023-07-01', 0, 'ended', 2),
+('AD23-01', '2023-08-01', '2023-12-15', 0, 'ended', 3),
+('EJ23-02E', '2023-01-15', '2023-07-01', 1, 'ended', 1);
 
--- Usuarios
-INSERT INTO users (use_nua, use_name, use_last_name, use_second_last_name, use_career, use_phone, use_email, use_password, use_is_teacher, use_campus) VALUES
-(20240001, 'Carlos', 'López', 'Mendoza', 'LIM', '4612000001', 'carlos.lopez@unach.mx', '$2a$10$carlos', 0, 'Salamanca'),
-(20240002, 'María', 'García', 'Sánchez', 'LIE', '4612000002', 'maria.garcia@unach.mx', '$2a$10$maria', 0, 'Yuriria'),
-(20240003, 'José', 'Martínez', 'Pérez', 'LICE', '4612000003', 'jose.martinez@unach.mx', '$2a$10$jose', 0, 'Salamanca'),
-(20240004, 'Laura', 'Hernández', 'Ruiz', 'LIMT', '4612000004', 'laura.hernandez@unach.mx', '$2a$10$laura', 0, 'Yuriria');
+-- =========================
+-- USUARIOS DE PRUEBA (4 alumnos)
+-- =========================
+INSERT INTO users (use_nua, use_name, use_last_name, use_second_last_name, use_career, use_phone, use_email, use_password, use_sede) VALUES
+(100001, 'Carlos', 'López', 'Mendoza', 'IS75LI0103', '4612000001', 'carlos.lopez@unach.mx', '$2a$10$carlos', 'SALAMANCA'),
+(100002, 'María', 'García', 'Sánchez', 'IS75LI0203', '4612000002', 'maria.garcia@unach.mx', '$2a$10$maria', 'YURIRIA'),
+(100003, 'José', 'Martínez', 'Pérez', 'IS75LI0303', '4612000003', 'jose.martinez@unach.mx', '$2a$10$jose', 'SALAMANCA'),
+(100004, 'Laura', 'Hernández', 'Ruiz', 'IS75LI0403', '4612000004', 'laura.hernandez@unach.mx', '$2a$10$laura', 'YURIRIA');
 
--- Actividades
+-- =========================
+-- ACTIVIDADES DE PRUEBA (1 de cada tipo por alumno en cada periodo)
+-- =========================
+-- Usamos imágenes de la carpeta /evidence/
+-- Para simplificar, se asignan consecutivamente a periodos y alumnos
+
+-- ACTIVIDADES PARA PERIODOS ACTIVE (sin observaciones)
 INSERT INTO activities (act_name, act_date_start, act_date_end, act_hours, act_institution, act_evidence, act_area, act_status, act_observations, act_last_admin_id, act_user_id, act_period_id) VALUES
-('Taller de Innovación', '2024-02-10', '2024-02-12', 12, 'UNACH', '{"fotos":["/evidence/innovacion1.webp"]}', 'DP', 'approval', 'Documentación completa', 2, 1, 1),
-('Seminario de Liderazgo', '2024-03-05', '2024-03-07', 10, 'UNACH', '{"fotos":["/evidence/liderazgo1.webp"]}', 'CEE', 'pending', 'En revisión', 3, 2, 1),
-('Foro de Educación', '2024-04-15', '2024-04-16', 8, 'UNACH', '{"fotos":["/evidence/educacion1.webp"]}', 'RS', 'rejected', 'Falta evidencia', 2, 3, 1),
-('Curso de Tecnología', '2024-09-10', '2024-09-12', 15, 'UNACH', '{"fotos":["/evidence/tecnologia1.webp"]}', 'FCI', 'pending', '', 2, 1, 2);
+('Taller de Innovación', '2024-02-10', '2024-02-12', 12, 'UNACH', '{"fotos":["/evidence/1747795379609-8a11et.webp"]}', 'DP', 'approval', '', 2, 1, 1),
+('Seminario de Liderazgo', '2024-03-05', '2024-03-07', 10, 'UNACH', '{"fotos":["/evidence/1747804756857-15ntav.webp"]}', 'RS', 'pending', '', 3, 2, 1),
+('Foro de Educación', '2024-04-15', '2024-04-16', 8, 'UNACH', '{"fotos":["/evidence/1747804795180-5eewps.webp"]}', 'CEE', 'rejected', '', 2, 3, 1),
+('Curso de Tecnología', '2024-05-10', '2024-05-12', 15, 'UNACH', '{"fotos":["/evidence/1747805236754-0y0g8w.webp"]}', 'FCI', 'pending', '', 2, 4, 1),
 
--- Contactos administrativos
+('Taller de Innovación', '2024-09-10', '2024-09-12', 12, 'UNACH', '{"fotos":["/evidence/1747808313135-oq9fit.webp"]}', 'DP', 'approval', '', 2, 1, 2),
+('Seminario de Liderazgo', '2024-10-05', '2024-10-07', 10, 'UNACH', '{"fotos":["/evidence/1747808366239-uqctja.webp"]}', 'RS', 'pending', '', 3, 2, 2),
+('Foro de Educación', '2024-11-15', '2024-11-16', 8, 'UNACH', '{"fotos":["/evidence/1748413899812-j376wz.webp"]}', 'CEE', 'rejected', '', 2, 3, 2),
+('Curso de Tecnología', '2024-12-10', '2024-12-12', 15, 'UNACH', '{"fotos":["/evidence/1748413899854-khtw7a.webp"]}', 'FCI', 'pending', '', 2, 4, 2),
+
+('Taller de Innovación', '2024-02-10', '2024-02-12', 12, 'UNACH', '{"fotos":["/evidence/1748562159750-rpy7h1.webp"]}', 'DP', 'approval', '', 2, 1, 3),
+('Seminario de Liderazgo', '2024-03-05', '2024-03-07', 10, 'UNACH', '{"fotos":["/evidence/1748562232149-vs34zu.webp"]}', 'RS', 'pending', '', 3, 2, 3),
+('Foro de Educación', '2024-04-15', '2024-04-16', 8, 'UNACH', '{"fotos":["/evidence/1748562262417-1yav58.webp"]}', 'CEE', 'rejected', '', 2, 3, 3),
+('Curso de Tecnología', '2024-05-10', '2024-05-12', 15, 'UNACH', '{"fotos":["/evidence/1747795379609-8a11et.webp"]}', 'FCI', 'pending', '', 2, 4, 3);
+
+-- ACTIVIDADES PARA PERIODOS PENDING (con observaciones)
+INSERT INTO activities (act_name, act_date_start, act_date_end, act_hours, act_institution, act_evidence, act_area, act_status, act_observations, act_last_admin_id, act_user_id, act_period_id) VALUES
+('Taller de Innovación', '2024-02-10', '2024-02-12', 12, 'UNACH', '{"fotos":["/evidence/1747804756857-15ntav.webp"]}', 'DP', 'approval', 'Falta comprobante', 2, 1, 4),
+('Seminario de Liderazgo', '2024-03-05', '2024-03-07', 10, 'UNACH', '{"fotos":["/evidence/1747804795180-5eewps.webp"]}', 'RS', 'pending', 'En revisión', 3, 2, 4),
+('Foro de Educación', '2024-04-15', '2024-04-16', 8, 'UNACH', '{"fotos":["/evidence/1747805236754-0y0g8w.webp"]}', 'CEE', 'rejected', 'Evidencia insuficiente', 2, 3, 4),
+('Curso de Tecnología', '2024-05-10', '2024-05-12', 15, 'UNACH', '{"fotos":["/evidence/1747808313135-oq9fit.webp"]}', 'FCI', 'pending', 'Pendiente de validación', 2, 4, 4),
+
+('Taller de Innovación', '2024-09-10', '2024-09-12', 12, 'UNACH', '{"fotos":["/evidence/1747808366239-uqctja.webp"]}', 'DP', 'approval', 'Falta comprobante', 2, 1, 5),
+('Seminario de Liderazgo', '2024-10-05', '2024-10-07', 10, 'UNACH', '{"fotos":["/evidence/1748413899812-j376wz.webp"]}', 'RS', 'pending', 'En revisión', 3, 2, 5),
+('Foro de Educación', '2024-11-15', '2024-11-16', 8, 'UNACH', '{"fotos":["/evidence/1748413899854-khtw7a.webp"]}', 'CEE', 'rejected', 'Evidencia insuficiente', 2, 3, 5),
+('Curso de Tecnología', '2024-12-10', '2024-12-12', 15, 'UNACH', '{"fotos":["/evidence/1748562159750-rpy7h1.webp"]}', 'FCI', 'pending', 'Pendiente de validación', 2, 4, 5),
+
+('Taller de Innovación', '2024-02-10', '2024-02-12', 12, 'UNACH', '{"fotos":["/evidence/1748562232149-vs34zu.webp"]}', 'DP', 'approval', 'Falta comprobante', 2, 1, 6),
+('Seminario de Liderazgo', '2024-03-05', '2024-03-07', 10, 'UNACH', '{"fotos":["/evidence/1748562262417-1yav58.webp"]}', 'RS', 'pending', 'En revisión', 3, 2, 6),
+('Foro de Educación', '2024-04-15', '2024-04-16', 8, 'UNACH', '{"fotos":["/evidence/1747795379609-8a11et.webp"]}', 'CEE', 'rejected', 'Evidencia insuficiente', 2, 3, 6),
+('Curso de Tecnología', '2024-05-10', '2024-05-12', 15, 'UNACH', '{"fotos":["/evidence/1747804756857-15ntav.webp"]}', 'FCI', 'pending', 'Pendiente de validación', 2, 4, 6);
+
+-- ACTIVIDADES PARA PERIODOS ENDED (con observaciones)
+INSERT INTO activities (act_name, act_date_start, act_date_end, act_hours, act_institution, act_evidence, act_area, act_status, act_observations, act_last_admin_id, act_user_id, act_period_id) VALUES
+('Taller de Innovación', '2023-02-10', '2023-02-12', 12, 'UNACH', '{"fotos":["/evidence/1747804795180-5eewps.webp"]}', 'DP', 'approval', 'Periodo finalizado', 2, 1, 7),
+('Seminario de Liderazgo', '2023-03-05', '2023-03-07', 10, 'UNACH', '{"fotos":["/evidence/1747805236754-0y0g8w.webp"]}', 'RS', 'pending', 'Periodo finalizado', 3, 2, 7),
+('Foro de Educación', '2023-04-15', '2023-04-16', 8, 'UNACH', '{"fotos":["/evidence/1747808313135-oq9fit.webp"]}', 'CEE', 'rejected', 'Periodo finalizado', 2, 3, 7),
+('Curso de Tecnología', '2023-05-10', '2023-05-12', 15, 'UNACH', '{"fotos":["/evidence/1747808366239-uqctja.webp"]}', 'FCI', 'pending', 'Periodo finalizado', 2, 4, 7),
+
+('Taller de Innovación', '2023-09-10', '2023-09-12', 12, 'UNACH', '{"fotos":["/evidence/1748413899812-j376wz.webp"]}', 'DP', 'approval', 'Periodo finalizado', 2, 1, 8),
+('Seminario de Liderazgo', '2023-10-05', '2023-10-07', 10, 'UNACH', '{"fotos":["/evidence/1748413899854-khtw7a.webp"]}', 'RS', 'pending', 'Periodo finalizado', 3, 2, 8),
+('Foro de Educación', '2023-11-15', '2023-11-16', 8, 'UNACH', '{"fotos":["/evidence/1748562159750-rpy7h1.webp"]}', 'CEE', 'rejected', 'Periodo finalizado', 2, 3, 8),
+('Curso de Tecnología', '2023-12-10', '2023-12-12', 15, 'UNACH', '{"fotos":["/evidence/1748562232149-vs34zu.webp"]}', 'FCI', 'pending', 'Periodo finalizado', 2, 4, 8),
+
+('Taller de Innovación', '2023-02-10', '2023-02-12', 12, 'UNACH', '{"fotos":["/evidence/1748562262417-1yav58.webp"]}', 'DP', 'approval', 'Periodo finalizado', 2, 1, 9),
+('Seminario de Liderazgo', '2023-03-05', '2023-03-07', 10, 'UNACH', '{"fotos":["/evidence/1747795379609-8a11et.webp"]}', 'RS', 'pending', 'Periodo finalizado', 3, 2, 9),
+('Foro de Educación', '2023-04-15', '2023-04-16', 8, 'UNACH', '{"fotos":["/evidence/1747804756857-15ntav.webp"]}', 'CEE', 'rejected', 'Periodo finalizado', 2, 3, 9),
+('Curso de Tecnología', '2023-05-10', '2023-05-12', 15, 'UNACH', '{"fotos":["/evidence/1747804795180-5eewps.webp"]}', 'FCI', 'pending', 'Periodo finalizado', 2, 4, 9);
+
+-- =========================
+-- CONTACTOS ADMINISTRATIVOS (en todos los periodos excepto los active: periodos 4-9)
+-- =========================
 INSERT INTO contact (con_user_id, con_admin_id, con_period_id, con_activity_id, con_description, con_observations, con_status) VALUES
-(1, 2, 1, 1, 'Revisión de documentación', 'Todo correcto', 'resolved'),
-(2, 3, 1, 2, 'Validación de actividad', 'En proceso', 'in_progress');
+-- PENDING
+(1, 2, 4, 1, 'Revisión de documentación', 'Todo correcto', 'resolved'),
+(2, 3, 4, 2, 'Validación de actividad', 'En proceso', 'in_progress'),
+(3, 2, 4, 3, 'Observaciones generales', 'Falta evidencia', 'pending'),
+(4, 2, 4, 4, 'Seguimiento', 'Pendiente', 'pending'),
+
+(1, 2, 5, 5, 'Revisión de documentación', 'Todo correcto', 'resolved'),
+(2, 3, 5, 6, 'Validación de actividad', 'En proceso', 'in_progress'),
+(3, 2, 5, 7, 'Observaciones generales', 'Falta evidencia', 'pending'),
+(4, 2, 5, 8, 'Seguimiento', 'Pendiente', 'pending'),
+
+(1, 2, 6, 9, 'Revisión de documentación', 'Todo correcto', 'resolved'),
+(2, 3, 6, 10, 'Validación de actividad', 'En proceso', 'in_progress'),
+(3, 2, 6, 11, 'Observaciones generales', 'Falta evidencia', 'pending'),
+(4, 2, 6, 12, 'Seguimiento', 'Pendiente', 'pending'),
+
+-- ENDED
+(1, 2, 7, 13, 'Revisión de documentación', 'Todo correcto', 'resolved'),
+(2, 3, 7, 14, 'Validación de actividad', 'En proceso', 'in_progress'),
+(3, 2, 7, 15, 'Observaciones generales', 'Falta evidencia', 'pending'),
+(4, 2, 7, 16, 'Seguimiento', 'Pendiente', 'pending'),
+
+(1, 2, 8, 17, 'Revisión de documentación', 'Todo correcto', 'resolved'),
+(2, 3, 8, 18, 'Validación de actividad', 'En proceso', 'in_progress'),
+(3, 2, 8, 19, 'Observaciones generales', 'Falta evidencia', 'pending'),
+(4, 2, 8, 20, 'Seguimiento', 'Pendiente', 'pending'),
+
+(1, 2, 9, 21, 'Revisión de documentación', 'Todo correcto', 'resolved'),
+(2, 3, 9, 22, 'Validación de actividad', 'En proceso', 'in_progress'),
+(3, 2, 9, 23, 'Observaciones generales', 'Falta evidencia', 'pending'),
+(4, 2, 9, 24, 'Seguimiento', 'Pendiente', 'pending');

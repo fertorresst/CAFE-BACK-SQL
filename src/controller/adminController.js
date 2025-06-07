@@ -130,15 +130,17 @@ const setAdminActive = async (req, res) => {
 const deleteAdmin = async (req, res) => {
   try {
     const { id } = req.params
-    await Admin.deleteAdmin(id)
+    // El id del admin actual debe venir en el body (por seguridad)
+    const { currentAdminId } = req.body
+    await Admin.deleteAdmin(Number(id), Number(currentAdminId))
     res.status(200).json({
       success: true,
-      message: 'ADMINISTRADOR ELIMINADO CORRECTAMENTE'
+      message: 'ADMINISTRADOR ELIMINADO EXITOSAMENTE.'
     })
   } catch (err) {
     res.status(400).json({
-      message: err.message,
-      success: false
+      success: false,
+      message: err.message
     })
   }
 }
@@ -156,10 +158,10 @@ const loginAdmin = async (req, res) => {
       process.env.JWT_SECRET,
       { expiresIn: '1d' }
     )
-    res.cookie('token', token, {
+    res.cookie('admin_token', token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'development',
-      sameSite: 'strict',
+      secure: false,
+      sameSite: 'lax',
       maxAge: 24 * 60 * 60 * 1000
     })
     res.json({
@@ -175,6 +177,26 @@ const loginAdmin = async (req, res) => {
   }
 }
 
+/**
+ * Obtiene la información de un administrador por su ID.
+ * @route GET /admin/:id
+ */
+const getAdminById = async (req, res) => {
+  try {
+    const { id } = req.params
+    const admin = await Admin.getAdminById(Number(id))
+    res.status(200).json({
+      success: true,
+      admin
+    })
+  } catch (err) {
+    res.status(404).json({
+      success: false,
+      message: err.message
+    })
+  }
+}
+
 module.exports = {
   getAllAdmins,
   createAdmin,
@@ -182,5 +204,6 @@ module.exports = {
   updateAdminPassword,
   setAdminActive,
   deleteAdmin,
-  loginAdmin
+  loginAdmin,
+  getAdminById
 }

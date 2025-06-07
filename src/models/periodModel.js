@@ -368,44 +368,91 @@ class Period extends IPeriod {
   }
 
   /**
-   * Obtiene la información completa de un periodo para su descarga
+   * Genera un reporte final de un periodo con estudiantes y sus actividades.
    * @param {number} periodId - ID del periodo
-   * @returns {Promise<Object>} Objeto con toda la información del periodo y sus actividades
+   * @returns {Promise<Object>} Reporte estructurado para el frontend
    */
-  static async getPeriodForDownload(periodId) {
+  static async getFinalReport(periodId) {
     try {
       if (!periodId) throw new Error('SE REQUIERE UN ID DE PERIODO VÁLIDO')
-      if (isNaN(periodId)) throw new Error('EL ID DE PERIODO DEBE SER UN NÚMERO')
+      // 1. Obtener datos del periodo
       const periodQuery = `
-        SELECT * FROM periods 
+        SELECT per_name, per_date_start, per_date_end, per_exclusive
+        FROM periods
         WHERE per_id = ?
       `
-      const periodResult = await db.query(periodQuery, [periodId])
-      if (!periodResult || periodResult.length === 0) {
-        throw new Error(`NO SE ENCONTRÓ UN PERIODO CON ID: ${periodId}`)
+      const [period] = await db.query(periodQuery, [periodId])
+      if (!period) throw new Error('NO SE ENCONTRÓ EL PERIODO')
+
+      // 2. Diccionario de claves de carrera a nombre completo
+      const careerNames = {
+        'IS75LI0103': 'LIM',
+        'IS75LI0203': 'LIE',
+        'IS75LI0303': 'LICE',
+        'IS75LI03Y3': 'LICE-Y',
+        'IS75LI0403': 'LIMT',
+        'IS75LI0502': 'LISC',
+        'IS75LI05Y2': 'LISC-Y',
+        'IS75LI0602': 'LGE',
+        'IS75LI06Y2': 'LGE-Y',
+        'IS75LI0702': 'LAD',
+        'IS75LI0801': 'LIDIA'
       }
-      const period = periodResult[0]
-      if (period.per_status !== 'ended') {
-        throw new Error('EL PERIODO DEBE ESTAR FINALIZADO PARA PODER DESCARGARLO')
-      }
-      const activitiesQuery = `
-        SELECT * FROM activities 
-        WHERE act_period_id = ?
+
+      // 3. Obtener estudiantes y sus actividades APROBADAS del periodo
+      const studentsQuery = `
+        SELECT 
+          u.use_id, u.use_nua, u.use_name, u.use_last_name, u.use_second_last_name,
+          u.use_email, u.use_phone, u.use_sede, u.use_career,
+          a.act_area, a.act_hours
+        FROM users u
+        INNER JOIN activities a ON a.act_user_id = u.use_id
+        WHERE a.act_period_id = ?
+          AND a.act_status = 'approval'
+        ORDER BY u.use_nua, a.act_area
       `
-      const activitiesResult = await db.query(activitiesQuery, [periodId])
+      const rows = await db.query(studentsQuery, [periodId])
+
+      // 4. Agrupar actividades por estudiante
+      const studentsMap = {}
+      for (const row of rows) {
+        if (!studentsMap[row.use_id]) {
+          const clave = row.use_career
+          const nombre = careerNames[clave] || clave
+          studentsMap[row.use_id] = {
+            use_nua: row.use_nua,
+            use_name: row.use_name,
+            use_last_name: row.use_last_name,
+            use_second_last_name: row.use_second_last_name,
+            use_email: row.use_email,
+            use_phone: row.use_phone,
+            use_sede: row.use_sede,
+            career_full_name: `${clave} - ${nombre}`,
+            activities: []
+          }
+        }
+        studentsMap[row.use_id].activities.push({
+          act_area: row.act_area,
+          act_hours: row.act_hours
+        })
+      }
+
+      // 5. Estructura final
       return {
-        periodId,
-        periodName: period.per_name,
-        periodStartDate: period.per_date_start,
-        periodEndDate: period.per_date_end,
-        periodExclusive: period.per_exclusive,
-        periodStatus: period.per_status,
-        periodCreateAdminId: period.per_create_admin_id,
-        activities: activitiesResult
+        success: true,
+        report: {
+          period: {
+            per_name: period.per_name,
+            per_date_start: period.per_date_start.toISOString().split('T')[0],
+            per_date_end: period.per_date_end.toISOString().split('T')[0],
+            per_exclusive: !!period.per_exclusive
+          },
+          students: Object.values(studentsMap)
+        }
       }
     } catch (err) {
       console.log('ERROR =>', err)
-      throw new Error(err.message || 'ERROR AL OBTENER EL PERIODO PARA DESCARGA')
+      throw new Error(err.message || 'ERROR AL GENERAR EL REPORTE FINAL')
     }
   }
 }
