@@ -26,6 +26,11 @@ class Activities extends IActivities {
     this.updatedAt = updatedAt
   }
 
+  // Cambia los valores válidos de área según el nuevo ENUM de la base de datos
+  static getValidAreas() {
+    return ['DP/VSS', 'RS/VCI', 'CEE/EIE', 'FCI/ICP', 'AC']
+  }
+
   /**
    * Crea una nueva actividad individual
    * @param {Object} data - Datos de la actividad
@@ -53,8 +58,8 @@ class Activities extends IActivities {
       throw new Error('LA FECHA DE INICIO NO PUEDE SER POSTERIOR A LA FECHA DE FIN')
     }
 
-    // Validar área
-    const validAreas = ['DP', 'RS', 'CEE', 'FCI', 'AC']
+    // Validar área con los nuevos valores
+    const validAreas = Activities.getValidAreas()
     if (!validAreas.includes(data.area)) {
       throw new Error(`ÁREA INVÁLIDA. DEBE SER UNA DE: ${validAreas.join(', ')}`)
     }
@@ -79,12 +84,12 @@ class Activities extends IActivities {
       }
     }
 
-    // Insertar actividad
+    // Insertar actividad (agrega act_last_admin_id si está presente)
     const insertQuery = `
       INSERT INTO activities (
         act_name, act_date_start, act_date_end, act_hours, act_institution,
-        act_evidence, act_area, act_status, act_user_id, act_period_id
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        act_evidence, act_area, act_status, act_user_id, act_period_id, act_last_admin_id
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `
     await db.query(insertQuery, [
       data.name,
@@ -96,7 +101,8 @@ class Activities extends IActivities {
       data.area,
       data.status,
       data.userId,
-      data.periodId
+      data.periodId,
+      data.lastAdminId || null
     ])
     return true
   }
@@ -223,7 +229,8 @@ class Activities extends IActivities {
         UPDATE activities
         SET act_status = ?, act_observations = ?, act_last_admin_id = ?, act_updated_at = CURRENT_TIMESTAMP
         WHERE act_id = ?
-      `
+        `
+      console.log('🚀 ~ Activities ~ updateActivityStatus ~ status, observations, lastAdminId, activityId:', status, observations, lastAdminId, activityId)
       const result = await db.query(updateQuery, [status, observations, lastAdminId, activityId])
       if (result.affectedRows === 0) throw new Error('NO SE PUDO ACTUALIZAR LA ACTIVIDAD')
       return true
@@ -276,7 +283,7 @@ class Activities extends IActivities {
         }
       }
       if (activityData.area) {
-        const validAreas = ['DP', 'RS', 'CEE', 'FCI', 'AC']
+        const validAreas = Activities.getValidAreas()
         if (!validAreas.includes(activityData.area)) {
           throw new Error(`ÁREA INVÁLIDA. DEBE SER UNA DE: ${validAreas.join(', ')}`)
         }

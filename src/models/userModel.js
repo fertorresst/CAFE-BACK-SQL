@@ -3,7 +3,7 @@ const IUser = require('../interfaces/IUser')
 const bcryptjs = require('bcryptjs')
 
 class User extends IUser {
-  constructor(id, nua, name, lastName, secondLastName, career, phone, email, password, createdAt, updatedAt) {
+  constructor(id, nua, name, lastName, secondLastName, career, phone, email, password, sede, profilePicture, createdAt, updatedAt) {
     super()
     this.id = id
     this.nua = nua
@@ -14,6 +14,8 @@ class User extends IUser {
     this.phone = phone
     this.email = email
     this.password = password
+    this.sede = sede
+    this.profilePicture = profilePicture
     this.createdAt = createdAt
     this.updatedAt = updatedAt
   }
@@ -34,6 +36,7 @@ class User extends IUser {
         use_phone,
         use_email,
         use_sede,
+        use_profile_picture,
         use_created_at,
         use_updated_at
       FROM users
@@ -51,6 +54,7 @@ class User extends IUser {
       phone: user.use_phone,
       email: user.use_email,
       sede: user.use_sede,
+      profilePicture: user.use_profile_picture || null,
       createdAt: user.use_created_at
         ? new Date(user.use_created_at).toISOString().split('T')[0]
         : null,
@@ -94,23 +98,24 @@ class User extends IUser {
     }
 
     // Validar longitud del teléfono
-    if (data.phone.length < 10 || data.phone.length > 15) {
+    if (data.phone.length < 10) {
       throw new Error('EL TELÉFONO DEBE TENER 10 DÍGITOS')
     }
 
     // Validar carrera
     const validCareers = [
-        'IS75LI0103', // LICENCIATURA EN INGENIERÍA MECÁNICA
-        'IS75LI0203', // LICENCIATURA EN INGENIERÍA ELÉCTRICA
-        'IS75LI0303', // LICENCIATURA EN INGENIERÍA EN COMUNICACIONES Y ELECTRÓNICA
-        'IS75LI03Y3', // LICENCIATURA EN INGENIERÍA EN COMUNICACIONES Y ELECTRÓNICA (Yuriria)
-        'IS75LI0403', // LICENCIATURA EN INGENIERÍA EN MECATRÓNICA
-        'IS75LI0502', // LICENCIATURA EN INGENIERÍA EN SISTEMAS COMPUTACIONALES
-        'IS75LI05Y2', // LICENCIATURA EN INGENIERÍA EN SISTEMAS COMPUTACIONALES (Yuriria)
-        'IS75LI0602', // LICENCIATURA EN GESTIÓN EMPRESARIAL
-        'IS75LI06Y2', // LICENCIATURA EN GESTIÓN EMPRESARIAL (Yuriria)
-        'IS75LI0702', // LICENCIATURA EN ARTES DIGITALES
-        'IS75LI0801'  // LICENCIATURA EN INGENIERÍA DE DATOS E INTELIGENCIA ARTIFICIAL
+      'IS75LI0103', // LICENCIATURA EN INGENIERÍA MECÁNICA
+      'IS75LI0203', // LICENCIATURA EN INGENIERÍA ELÉCTRICA
+      'IS75LI0303', // LICENCIATURA EN INGENIERÍA EN COMUNICACIONES Y ELECTRÓNICA
+      'IS75LI03Y3', // LICENCIATURA EN INGENIERÍA EN COMUNICACIONES Y ELECTRÓNICA (Yuriria)
+      'IS75LI0403', // LICENCIATURA EN INGENIERÍA EN MECATRÓNICA
+      'IS75LI0502', // LICENCIATURA EN INGENIERÍA EN SISTEMAS COMPUTACIONALES
+      'IS75LI05Y2', // LICENCIATURA EN INGENIERÍA EN SISTEMAS COMPUTACIONALES (Yuriria)
+      'IS75LI0602', // LICENCIATURA EN GESTIÓN EMPRESARIAL
+      'IS75LI06Y2', // LICENCIATURA EN GESTIÓN EMPRESARIAL (Yuriria)
+      'IS75LI0702', // LICENCIATURA EN ARTES DIGITALES
+      'IS75LI0801', // LICENCIATURA EN INGENIERÍA DE DATOS E INTELIGENCIA ARTIFICIAL
+      'IS75LI08Y2'  // LICENCIATURA EN ENSEÑANZA DEL INGLÉS
     ]
     if (!validCareers.includes(data.career)) {
       throw new Error(`CARRERA NO VALIDA.`)
@@ -131,13 +136,13 @@ class User extends IUser {
     // Encriptar la contraseña antes de guardar
     const hashedPassword = await bcryptjs.hash(data.password, 10)
 
-    // Insertar nuevo usuario
+    // Insertar nuevo usuario (agrega use_profile_picture si está presente)
     const insertQuery = `
       INSERT INTO users (
         use_nua, use_name, use_last_name, use_second_last_name, 
         use_career, use_phone, use_email, use_password, 
-        use_sede
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        use_sede, use_profile_picture
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `
     const result = await db.query(insertQuery, [
       data.nua,
@@ -148,7 +153,8 @@ class User extends IUser {
       data.phone,
       data.email,
       hashedPassword,
-      data.sede.toUpperCase()
+      data.sede.toUpperCase(),
+      data.profilePicture || null
     ])
     return result.insertId
   }
@@ -186,14 +192,18 @@ class User extends IUser {
     }
 
     // Validar longitud del teléfono
-    if (data.phone.length < 10 || data.phone.length > 15) {
-      throw new Error('EL TELÉFONO DEBE TENER ENTRE 10 Y 15 DÍGITOS')
+    if (data.phone.length < 10) {
+      throw new Error('EL TELÉFONO DEBE TENER 10 DÍGITOS')
     }
 
     // Validar carrera
-    const validCareers = ['LIM', 'LIE', 'LICE', 'LIMT', 'LISC', 'LGE', 'LAD', 'LIDIA', 'LEI']
+    const validCareers = [
+      'IS75LI0103', 'IS75LI0203', 'IS75LI0303', 'IS75LI03Y3', 'IS75LI0403',
+      'IS75LI0502', 'IS75LI05Y2', 'IS75LI0602', 'IS75LI06Y2', 'IS75LI0702',
+      'IS75LI0801', 'IS75LI08Y2'
+    ]
     if (!validCareers.includes(data.career)) {
-      throw new Error(`LA CARRERA DEBE SER UNA DE LAS SIGUIENTES: ${validCareers.join(', ')}`)
+      throw new Error(`CARRERA NO VALIDA.`)
     }
 
     // Validar sede
@@ -202,7 +212,7 @@ class User extends IUser {
       throw new Error('LA SEDE DEBE SER SALAMANCA O YURIRIA')
     }
 
-    // Actualizar datos
+    // Actualizar datos (incluye use_profile_picture)
     const updateQuery = `
       UPDATE users SET
         use_name = ?,
@@ -211,7 +221,8 @@ class User extends IUser {
         use_career = ?,
         use_phone = ?,
         use_email = ?,
-        use_sede = ?
+        use_sede = ?,
+        use_profile_picture = ?
       WHERE use_id = ?
     `
     const result = await db.query(updateQuery, [
@@ -222,6 +233,7 @@ class User extends IUser {
       data.phone,
       data.email,
       data.sede.toUpperCase(),
+      data.profilePicture || null,
       id
     ])
     return result.affectedRows > 0
@@ -263,7 +275,7 @@ class User extends IUser {
       SELECT 
         use_id, use_nua, use_name, use_last_name, 
         use_second_last_name, use_email, use_password,
-        use_career, use_sede
+        use_career, use_sede, use_profile_picture
       FROM users 
       WHERE use_email = ?
     `
@@ -284,7 +296,8 @@ class User extends IUser {
       fullName: `${user.use_name} ${user.use_last_name} ${user.use_second_last_name || ''}`.trim(),
       career: user.use_career,
       email: user.use_email,
-      sede: user.use_sede
+      sede: user.use_sede,
+      profilePicture: user.use_profile_picture || null
     }
   }
 
@@ -298,7 +311,7 @@ class User extends IUser {
     const query = `
       SELECT 
         use_id, use_nua, use_name, use_last_name, use_second_last_name,
-        use_career, use_phone, use_email, use_sede, use_created_at, use_updated_at
+        use_career, use_phone, use_email, use_sede, use_profile_picture, use_created_at, use_updated_at
       FROM users
       WHERE use_id = ?
     `
@@ -314,6 +327,7 @@ class User extends IUser {
       phone: user.use_phone,
       email: user.use_email,
       sede: user.use_sede,
+      profilePicture: user.use_profile_picture || null,
       createdAt: user.use_created_at
         ? new Date(user.use_created_at).toISOString().split('T')[0]
         : null,

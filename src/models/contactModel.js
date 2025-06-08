@@ -15,10 +15,11 @@ class Contact extends IContact {
    * @param {string} description - Descripción del contacto
    * @param {string} observations - Observaciones del contacto
    * @param {string} status - Estado del contacto
+   * @param {number|null} lastAdminId - ID del último admin que modificó el contacto
    * @param {string} createdAt - Fecha de creación
    * @param {string} updatedAt - Fecha de actualización
    */
-  constructor(id, userId, adminId, periodId, activityId, description, observations, status, createdAt, updatedAt) {
+  constructor(id, userId, adminId, periodId, activityId, description, observations, status, lastAdminId, createdAt, updatedAt) {
     super()
     this.id = id
     this.userId = userId
@@ -28,6 +29,7 @@ class Contact extends IContact {
     this.description = description
     this.observations = observations
     this.status = status
+    this.lastAdminId = lastAdminId
     this.createdAt = createdAt
     this.updatedAt = updatedAt
   }
@@ -54,6 +56,7 @@ class Contact extends IContact {
           c.con_description, 
           c.con_observations, 
           c.con_status, 
+          c.con_last_admin_id,
           c.con_created_at, 
           c.con_updated_at,
           u.use_id,
@@ -70,12 +73,17 @@ class Contact extends IContact {
           p.per_id,
           p.per_name AS period_name,
           ac.act_id,
-          ac.act_name
+          ac.act_name,
+          la.adm_id AS last_admin_id,
+          la.adm_name AS last_admin_name,
+          la.adm_last_name AS last_admin_last_name,
+          la.adm_second_last_name AS last_admin_second_last_name
         FROM contact c
         INNER JOIN users u ON c.con_user_id = u.use_id
         INNER JOIN admins a ON c.con_admin_id = a.adm_id
         INNER JOIN periods p ON c.con_period_id = p.per_id
         LEFT JOIN activities ac ON c.con_activity_id = ac.act_id
+        LEFT JOIN admins la ON c.con_last_admin_id = la.adm_id
         WHERE c.con_period_id = ?
       `
 
@@ -112,6 +120,10 @@ class Contact extends IContact {
             name: contact.act_name
           }
         }
+        let lastAdminFullName = null
+        if (contact.last_admin_id) {
+          lastAdminFullName = `${contact.last_admin_name} ${contact.last_admin_last_name || ''} ${contact.last_admin_second_last_name || ''}`.trim()
+        }
         contact.con_created_at = new Date(contact.con_created_at).toISOString().split('T')[0]
         contact.con_updated_at = new Date(contact.con_updated_at).toISOString().split('T')[0]
         return {
@@ -119,6 +131,8 @@ class Contact extends IContact {
           description: contact.con_description,
           observations: contact.con_observations,
           status: contact.con_status,
+          lastAdminId: contact.con_last_admin_id,
+          lastAdminName: lastAdminFullName,
           createdAt: contact.con_created_at,
           updatedAt: contact.con_updated_at,
           periodId: contact.per_id,
@@ -166,15 +180,16 @@ class Contact extends IContact {
    * @param {number} id - ID del contacto
    * @param {string} observations - Observaciones
    * @param {string} status - Estado
+   * @param {number} lastAdminId - ID del último admin que modificó el contacto
    */
-  static async updateContact(id, observations, status) {
+  static async updateContact(id, observations, status, lastAdminId) {
     try {
       const query = `
         UPDATE contact
-        SET con_observations = ?, con_status = ?
+        SET con_observations = ?, con_status = ?, con_last_admin_id = ?, con_updated_at = CURRENT_TIMESTAMP
         WHERE con_id = ?
       `
-      await db.query(query, [observations, status, id])
+      await db.query(query, [observations, status, lastAdminId || null, id])
     } catch (err) {
       console.log('ERROR =>', err)
       throw new Error(err.message || 'ERROR AL ACTUALIZAR EL CONTACTO')
@@ -188,9 +203,10 @@ class Contact extends IContact {
    * @param {number} periodId - ID del periodo
    * @param {number|null} activityId - ID de la actividad (puede ser null)
    * @param {string} description - Descripción del contacto
+   * @param {number} lastAdminId - ID del último admin que crea el contacto
    * @returns {Promise<number>} ID del nuevo contacto
    */
-  static async createContact(userId, adminId, periodId, activityId, description) {
+  static async createContact(userId, adminId, periodId, activityId, description, lastAdminId) {
     try {
       // Validaciones básicas
       if (!userId || !adminId || !periodId || !description) {
@@ -231,10 +247,10 @@ class Contact extends IContact {
       // Si no existe un duplicado, crear el nuevo contacto
       const insertQuery = `
         INSERT INTO contact
-        (con_user_id, con_admin_id, con_period_id, con_activity_id, con_description)
-        VALUES (?, ?, ?, ?, ?)
+        (con_user_id, con_admin_id, con_period_id, con_activity_id, con_description, con_last_admin_id)
+        VALUES (?, ?, ?, ?, ?, ?)
       `
-      const result = await db.query(insertQuery, [userId, adminId, periodId, activityId || null, description])
+      const result = await db.query(insertQuery, [userId, adminId, periodId, activityId || null, description, lastAdminId || adminId])
       if (!result || !result.insertId) {
         throw new Error('NO SE PUDO CREAR EL CONTACTO')
       }

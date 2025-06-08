@@ -7,7 +7,7 @@ const Contact = require('../models/contactModel')
 const getContactsByPeriod = async (req, res) => {
   const { periodId } = req.params
   const { role, adminId } = req.query
-  console.log("🚀 ~ getContactsByPeriod ~ periodId, role, adminId:", periodId, role, adminId)
+
   try {
     if (!periodId) {
       return res.status(400).json({
@@ -73,7 +73,7 @@ const deleteContactById = async (req, res) => {
  * @route PUT /contacts
  */
 const updateContact = async (req, res) => {
-  const { id, observations, status } = req.body
+  const { id, observations, status, lastAdminId } = req.body
   try {
     if (!id || !status) {
       return res.status(400).json({
@@ -81,7 +81,7 @@ const updateContact = async (req, res) => {
         message: 'SE REQUIERE EL ID Y EL NUEVO ESTADO DEL CONTACTO'
       })
     }
-    await Contact.updateContact(id, observations, status)
+    await Contact.updateContact(id, observations, status, lastAdminId)
     res.status(200).json({
       success: true,
       message: 'CONTACTO ACTUALIZADO CORRECTAMENTE'

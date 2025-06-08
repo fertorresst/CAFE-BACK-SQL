@@ -17,6 +17,7 @@ class Admin {
         adm_phone,
         adm_active,
         adm_role,
+        adm_profile_picture,
         adm_created_at,
         adm_updated_at
       FROM admins
@@ -32,6 +33,7 @@ class Admin {
       phone: admin.adm_phone,
       active: admin.adm_active,
       role: admin.adm_role,
+      profilePicture: admin.adm_profile_picture || null,
       createdAt: admin.adm_created_at
         ? new Date(admin.adm_created_at).toLocaleString('es-MX').split(',')[0]
         : null,
@@ -89,11 +91,11 @@ class Admin {
     // Encriptar la contraseña antes de guardar
     const hashedPassword = await bcryptjs.hash(data.password, 10)
 
-    // Insertar nuevo admin
+    // Insertar nuevo admin (agrega adm_profile_picture si está presente)
     const insertQuery = `
       INSERT INTO admins (
-        adm_email, adm_password, adm_name, adm_last_name, adm_second_last_name, adm_phone, adm_role
-      ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        adm_email, adm_password, adm_name, adm_last_name, adm_second_last_name, adm_phone, adm_role, adm_profile_picture
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `
     const result = await db.query(insertQuery, [
       data.email,
@@ -102,7 +104,8 @@ class Admin {
       data.lastName,
       data.secondLastName || null,
       data.phone,
-      data.role.toLowerCase()
+      data.role.toLowerCase(),
+      data.profilePicture || null
     ])
     return result.insertId
   }
@@ -148,7 +151,7 @@ class Admin {
       throw new Error(`EL ROL DEBE SER UNO DE LOS SIGUIENTES: ${validRoles.join(', ')}`)
     }
 
-    // Actualizar datos
+    // Actualizar datos (incluye adm_profile_picture)
     const updateQuery = `
       UPDATE admins SET
         adm_email = ?,
@@ -156,7 +159,8 @@ class Admin {
         adm_last_name = ?,
         adm_second_last_name = ?,
         adm_phone = ?,
-        adm_role = ?
+        adm_role = ?,
+        adm_profile_picture = ?
       WHERE adm_id = ?
     `
     const result = await db.query(updateQuery, [
@@ -166,6 +170,7 @@ class Admin {
       data.secondLastName || null,
       data.phone,
       data.role.toLowerCase(),
+      data.profilePicture || null,
       id
     ])
     return result.affectedRows > 0
@@ -259,7 +264,8 @@ class Admin {
       id: admin.adm_id,
       email: admin.adm_email,
       name: [admin.adm_name, admin.adm_last_name, admin.adm_second_last_name].filter(Boolean).join(' '),
-      role: admin.adm_role
+      role: admin.adm_role,
+      profilePicture: admin.adm_profile_picture || null
     }
   }
 
@@ -280,6 +286,7 @@ class Admin {
         adm_phone,
         adm_active,
         adm_role,
+        adm_profile_picture,
         adm_created_at,
         adm_updated_at
       FROM admins
@@ -296,6 +303,7 @@ class Admin {
       phone: admin.adm_phone,
       active: admin.adm_active,
       role: admin.adm_role,
+      profilePicture: admin.adm_profile_picture || null,
       createdAt: admin.adm_created_at
         ? new Date(admin.adm_created_at).toLocaleString('es-MX').split(',')[0]
         : null,

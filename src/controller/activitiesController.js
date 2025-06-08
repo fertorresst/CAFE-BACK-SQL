@@ -8,7 +8,6 @@ const getActivitiesByPeriod = async (req, res) => {
   try {
     const { id } = req.params
     const data = await Activities.getActivitiesByPeriod(id)
-    console.log("🚀 ~ getActivitiesByPeriod ~ data:", data[0].activities)
     res.status(200).json({
       data,
       success: true,
