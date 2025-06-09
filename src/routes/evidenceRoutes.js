@@ -8,10 +8,11 @@ const {
 
 const uploadEvidence = require('../middlewares/uploadEvidence')
 
-const { adminAuthMiddleware } = require('../auth/adminAuthMiddleware')
+const { userAuthMiddleware } = require('../auth/userAuthMiddleware')
 
 router.post(
   "/create-activity-with-evidence",
+  userAuthMiddleware,
   (req, res, next) => {
     console.time('multer-upload')
     next()
@@ -26,6 +27,7 @@ router.post(
 
 router.put(
   '/update-activity-evidence/:activityId',
+  userAuthMiddleware,
   uploadEvidence.array('files', 2),
   updateActivityEvidence
 )

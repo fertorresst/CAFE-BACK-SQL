@@ -8,7 +8,10 @@ function adminAuthMiddleware(req, res, next) {
   const token = req.cookies.admin_token
   if (!token) return res.status(401).json({ success: false, message: 'NO AUTORIZADO' })
   try {
-    req.admin = jwt.verify(token, process.env.JWT_SECRET)
+    const payload = jwt.verify(token, process.env.JWT_SECRET)
+    req.admin = payload
+    req.adminRole = payload.role // <-- Agrega el rol al request
+    req.adminId = payload.id     // <-- Agrega el id al request (opcional)
     next()
   } catch (err) {
     return res.status(401).json({ success: false, message: 'TOKEN INVÁLIDO' })

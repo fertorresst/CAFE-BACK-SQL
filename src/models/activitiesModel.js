@@ -230,7 +230,6 @@ class Activities extends IActivities {
         SET act_status = ?, act_observations = ?, act_last_admin_id = ?, act_updated_at = CURRENT_TIMESTAMP
         WHERE act_id = ?
         `
-      console.log('🚀 ~ Activities ~ updateActivityStatus ~ status, observations, lastAdminId, activityId:', status, observations, lastAdminId, activityId)
       const result = await db.query(updateQuery, [status, observations, lastAdminId, activityId])
       if (result.affectedRows === 0) throw new Error('NO SE PUDO ACTUALIZAR LA ACTIVIDAD')
       return true

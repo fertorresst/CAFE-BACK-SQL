@@ -16,15 +16,15 @@ const {
 
 const { adminAuthMiddleware } = require('../auth/adminAuthMiddleware')
 
-router.get("/get-all-periods", getAllPeriods)
-router.get("/get-period-info/:id", getPeriodInfo)
-router.post("/create-period", createPeriod)
-router.delete("/delete-period/:id", deletePeriod)
-router.patch("/update-dates", updateDates)
-router.patch("/update-status", updateStatus)
-router.get("/get-all-period-activities/:id", getAllPeriodActivities)
-router.get("/get-area-counts/:id", getAreaCountsByPeriodId)
-router.get("/get-period-for-download/:id", getPeriodForDownload)
-router.get("/final-report/:periodId", getFinalReport)
+router.get("/get-all-periods", adminAuthMiddleware, getAllPeriods)
+router.get("/get-period-info/:id", adminAuthMiddleware, getPeriodInfo)
+router.post("/create-period", adminAuthMiddleware, createPeriod)
+router.delete("/delete-period/:id", adminAuthMiddleware, deletePeriod)
+router.patch("/update-dates", adminAuthMiddleware, updateDates)
+router.patch("/update-status", adminAuthMiddleware, updateStatus)
+router.get("/get-all-period-activities/:id", adminAuthMiddleware, getAllPeriodActivities)
+router.get("/get-area-counts/:id", adminAuthMiddleware, getAreaCountsByPeriodId)
+router.get("/get-period-for-download/:id", adminAuthMiddleware, getPeriodForDownload)
+router.get("/final-report/:periodId", adminAuthMiddleware, getFinalReport)
 
 module.exports = router

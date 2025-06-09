@@ -6,6 +6,7 @@ const Period = require('../models/periodModel')
  */
 const getAllPeriods = async (req, res) => {
   try {
+    // Todos los roles pueden consultar periodos
     const periods = await Period.getAllPeriods()
     res.status(200).json({
       periods,
@@ -27,6 +28,7 @@ const getAllPeriods = async (req, res) => {
 const getPeriodInfo = async (req, res) => {
   const { id } = req.params
   try {
+    // Todos los roles pueden consultar periodos
     const period = await Period.getPeriodInfo(id)
     res.status(200).json({
       period,
@@ -47,7 +49,15 @@ const getPeriodInfo = async (req, res) => {
  */
 const createPeriod = async (req, res) => {
   const { name, dateStart, dateEnd, exclusive, status, createAdminId } = req.body
+  const { adminRole } = req
   try {
+    // Solo superadmin y admin pueden crear periodos
+    if (!['superadmin', 'admin'].includes(adminRole)) {
+      return res.status(403).json({
+        success: false,
+        message: 'NO TIENES PERMISOS PARA CREAR PERIODOS'
+      })
+    }
     if (!name || !dateStart || !dateEnd || exclusive === undefined || !status || !createAdminId) {
       return res.status(400).json({
         success: false,
@@ -74,7 +84,15 @@ const createPeriod = async (req, res) => {
  */
 const deletePeriod = async (req, res) => {
   const { id } = req.params
+  const { adminRole } = req
   try {
+    // Solo superadmin y admin pueden eliminar periodos
+    if (!['superadmin', 'admin'].includes(adminRole)) {
+      return res.status(403).json({
+        success: false,
+        message: 'NO TIENES PERMISOS PARA ELIMINAR PERIODOS'
+      })
+    }
     await Period.deletePeriod(id)
     res.status(200).json({
       success: true,
@@ -94,7 +112,15 @@ const deletePeriod = async (req, res) => {
  */
 const updateDates = async (req, res) => {
   const { id, dateStart, dateEnd } = req.body
+  const { adminRole } = req
   try {
+    // Solo superadmin y admin pueden actualizar periodos
+    if (!['superadmin', 'admin'].includes(adminRole)) {
+      return res.status(403).json({
+        success: false,
+        message: 'NO TIENES PERMISOS PARA MODIFICAR PERIODOS'
+      })
+    }
     if (!id || !dateStart || !dateEnd) {
       return res.status(400).json({
         success: false,
@@ -121,7 +147,15 @@ const updateDates = async (req, res) => {
  */
 const updateStatus = async (req, res) => {
   const { id, status } = req.body
+  const { adminRole } = req
   try {
+    // Solo superadmin y admin pueden actualizar periodos
+    if (!['superadmin', 'admin'].includes(adminRole)) {
+      return res.status(403).json({
+        success: false,
+        message: 'NO TIENES PERMISOS PARA MODIFICAR PERIODOS'
+      })
+    }
     if (!id || !status) {
       return res.status(400).json({
         success: false,
@@ -149,6 +183,13 @@ const updateStatus = async (req, res) => {
 const getAllPeriodActivities = async (req, res) => {
   const { id } = req.params
   try {
+    // Solo superadmin y admin pueden descargar reportes de periodos
+    if (!['superadmin', 'admin'].includes(adminRole)) {
+      return res.status(403).json({
+        success: false,
+        message: 'NO TIENES PERMISOS PARA DESCARGAR REPORTES DE PERIODOS'
+      })
+    }
     const data = await Period.getAllPeriodActivities(id)
     res.status(200).json({
       data,
@@ -170,6 +211,7 @@ const getAllPeriodActivities = async (req, res) => {
 const getAreaCountsByPeriodId = async (req, res) => {
   const { id } = req.params
   try {
+    // Todos los roles pueden consultar
     const data = await Period.getAreaCountsByPeriodId(id)
     res.status(200).json({
       data,
@@ -191,6 +233,7 @@ const getAreaCountsByPeriodId = async (req, res) => {
 const getPeriodForDownload = async (req, res) => {
   const { id } = req.params
   try {
+    // Todos los roles pueden consultar
     const period = await Period.getPeriodForDownload(id)
     res.status(200).json({
       period,
@@ -211,6 +254,7 @@ const getPeriodForDownload = async (req, res) => {
  */
 const getFinalReport = async (req, res) => {
   try {
+    // Todos los roles pueden consultar
     const { periodId } = req.params
     const report = await Period.getFinalReport(Number(periodId))
     res.status(200).json(report)

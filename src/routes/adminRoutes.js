@@ -16,22 +16,25 @@ const {
 const { adminAuthMiddleware } = require('../auth/adminAuthMiddleware')
 
 // Obtener todos los administradores
-router.get("/get-all-admins", getAllAdmins)
+router.get("/get-all-admins", adminAuthMiddleware, getAllAdmins)
 
 // Crear un nuevo administrador
-router.post("/create-admin", createAdmin)
+router.post("/create-admin", adminAuthMiddleware, createAdmin)
 
 // Actualizar un administrador
-router.put("/update-admin/:id", updateAdmin)
+router.put("/update-admin/:id", adminAuthMiddleware, updateAdmin)
 
 // Actualizar la contraseña de un administrador
-router.patch("/update-admin-password/:id", updateAdminPassword)
+router.patch("/update-admin-password/:id", adminAuthMiddleware, updateAdminPassword)
 
 // Activar o desactivar un administrador
-router.patch("/set-admin-active/:id", setAdminActive)
+router.patch("/set-admin-active/:id", adminAuthMiddleware, setAdminActive)
 
 // Eliminar un administrador
-router.delete("/delete-admin/:id", deleteAdmin)
+router.delete("/delete-admin/:id", adminAuthMiddleware, deleteAdmin)
+
+// Obtener información de un administrador por ID
+router.get("/get-admin/:id", adminAuthMiddleware, getAdminById)
 
 // Ejemplo usando Express
 router.post('/login', loginAdmin)
@@ -48,8 +51,5 @@ router.get('/me', adminAuthMiddleware, (req, res) => {
     admin: req.admin
   })
 })
-
-// Obtener información de un administrador por ID
-router.get("/get-admin/:id", getAdminById)
 
 module.exports = router

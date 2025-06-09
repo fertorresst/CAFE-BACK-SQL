@@ -6,7 +6,16 @@ const jwt = require('jsonwebtoken')
  * @route GET /admins
  */
 const getAllAdmins = async (req, res) => {
+  const { adminRole } = req
+
   try {
+    // Solo superadmin puede ver todos los administradores
+    if (adminRole !== 'superadmin') {
+      return res.status(403).json({
+        success: false,
+        message: 'NO TIENES PERMISOS PARA CONSULTAR ADMINISTRADORES'
+      })
+    }
     const admins = await Admin.getAllAdmins()
     res.status(200).json({
       admins,
@@ -25,11 +34,18 @@ const getAllAdmins = async (req, res) => {
 
 /**
  * Crea un nuevo administrador.
- * Valida que el correo y el teléfono no estén registrados previamente.
  * @route POST /admins
  */
 const createAdmin = async (req, res) => {
+  const { adminRole } = req
   try {
+    // Solo superadmin puede crear administradores
+    if (adminRole !== 'superadmin') {
+      return res.status(403).json({
+        success: false,
+        message: 'NO TIENES PERMISOS PARA CREAR ADMINISTRADORES'
+      })
+    }
     const data = req.body
     const newAdminId = await Admin.createAdmin(data)
     res.status(201).json({
@@ -47,11 +63,18 @@ const createAdmin = async (req, res) => {
 
 /**
  * Actualiza los datos de un administrador.
- * Valida que el correo y el teléfono no estén registrados previamente por otro admin.
  * @route PUT /admins/:id
  */
 const updateAdmin = async (req, res) => {
+  const { adminRole } = req
   try {
+    // Solo superadmin puede actualizar administradores
+    if (adminRole !== 'superadmin') {
+      return res.status(403).json({
+        success: false,
+        message: 'NO TIENES PERMISOS PARA MODIFICAR ADMINISTRADORES'
+      })
+    }
     const { id } = req.params
     const data = req.body
     const updated = await Admin.updateAdmin(id, data)
@@ -79,7 +102,15 @@ const updateAdmin = async (req, res) => {
  * @route PUT /admins/:id/password
  */
 const updateAdminPassword = async (req, res) => {
+  const { adminRole } = req
   try {
+    // Solo superadmin puede actualizar contraseñas de otros administradores
+    if (adminRole !== 'superadmin') {
+      return res.status(403).json({
+        success: false,
+        message: 'NO TIENES PERMISOS PARA MODIFICAR CONTRASEÑAS DE ADMINISTRADORES'
+      })
+    }
     const { id } = req.params
     const { password } = req.body
     const updated = await Admin.updatePassword(id, password)
@@ -107,7 +138,15 @@ const updateAdminPassword = async (req, res) => {
  * @route PATCH /admins/:id/active
  */
 const setAdminActive = async (req, res) => {
+  const { adminRole } = req
   try {
+    // Solo superadmin puede activar/desactivar administradores
+    if (adminRole !== 'superadmin') {
+      return res.status(403).json({
+        success: false,
+        message: 'NO TIENES PERMISOS PARA MODIFICAR ADMINISTRADORES'
+      })
+    }
     const { id } = req.params
     const { active } = req.body
     await Admin.setAdminActive(id, active)
@@ -128,7 +167,15 @@ const setAdminActive = async (req, res) => {
  * @route DELETE /admins/:id
  */
 const deleteAdmin = async (req, res) => {
+  const { adminRole } = req
   try {
+    // Solo superadmin puede eliminar administradores
+    if (adminRole !== 'superadmin') {
+      return res.status(403).json({
+        success: false,
+        message: 'NO TIENES PERMISOS PARA ELIMINAR ADMINISTRADORES'
+      })
+    }
     const { id } = req.params
     // El id del admin actual debe venir en el body (por seguridad)
     const { currentAdminId } = req.body
@@ -139,6 +186,26 @@ const deleteAdmin = async (req, res) => {
     })
   } catch (err) {
     res.status(400).json({
+      success: false,
+      message: err.message
+    })
+  }
+}
+
+/**
+ * Obtiene la información de un administrador por su ID.
+ * @route GET /admin/:id
+ */
+const getAdminById = async (req, res) => {
+  try {
+    const { id } = req.params
+    const admin = await Admin.getAdminById(Number(id))
+    res.status(200).json({
+      success: true,
+      admin
+    })
+  } catch (err) {
+    res.status(404).json({
       success: false,
       message: err.message
     })
@@ -171,26 +238,6 @@ const loginAdmin = async (req, res) => {
     })
   } catch (err) {
     res.status(401).json({
-      success: false,
-      message: err.message
-    })
-  }
-}
-
-/**
- * Obtiene la información de un administrador por su ID.
- * @route GET /admin/:id
- */
-const getAdminById = async (req, res) => {
-  try {
-    const { id } = req.params
-    const admin = await Admin.getAdminById(Number(id))
-    res.status(200).json({
-      success: true,
-      admin
-    })
-  } catch (err) {
-    res.status(404).json({
       success: false,
       message: err.message
     })

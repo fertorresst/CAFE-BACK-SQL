@@ -6,7 +6,7 @@ const Contact = require('../models/contactModel')
  */
 const getContactsByPeriod = async (req, res) => {
   const { periodId } = req.params
-  const { role, adminId } = req.query
+  const { adminRole, adminId } = req // Se espera que el middleware agregue adminRole y adminId
 
   try {
     if (!periodId) {
@@ -15,7 +15,7 @@ const getContactsByPeriod = async (req, res) => {
         message: 'SE REQUIERE EL ID DEL PERIODO'
       })
     }
-    if (role === 'consulta') {
+    if (adminRole === 'consulta') {
       return res.status(200).json({
         contacts: [],
         success: true,
@@ -28,7 +28,7 @@ const getContactsByPeriod = async (req, res) => {
         message: 'SE REQUIERE EL ID DEL ADMINISTRADOR'
       })
     }
-    const contacts = await Contact.getContactsByPeriod(periodId, role, adminId)
+    const contacts = await Contact.getContactsByPeriod(periodId, adminRole, adminId)
     res.status(200).json({
       contacts,
       success: true,
@@ -48,7 +48,15 @@ const getContactsByPeriod = async (req, res) => {
  */
 const deleteContactById = async (req, res) => {
   const { id } = req.params
+  const { adminRole } = req
   try {
+    // Solo superadmin y admin pueden eliminar contactos
+    if (!['superadmin', 'admin'].includes(adminRole)) {
+      return res.status(403).json({
+        success: false,
+        message: 'NO TIENES PERMISOS PARA ELIMINAR CONTACTOS'
+      })
+    }
     if (!id) {
       return res.status(400).json({
         success: false,
@@ -74,7 +82,15 @@ const deleteContactById = async (req, res) => {
  */
 const updateContact = async (req, res) => {
   const { id, observations, status, lastAdminId } = req.body
+  const { adminRole } = req
   try {
+    // Solo superadmin, admin y validador pueden modificar contactos
+    if (!['superadmin', 'admin', 'validador'].includes(adminRole)) {
+      return res.status(403).json({
+        success: false,
+        message: 'NO TIENES PERMISOS PARA MODIFICAR CONTACTOS'
+      })
+    }
     if (!id || !status) {
       return res.status(400).json({
         success: false,
@@ -100,7 +116,15 @@ const updateContact = async (req, res) => {
  */
 const createContact = async (req, res) => {
   const { userId, adminId, periodId, activityId, description } = req.body
+  const { adminRole } = req
   try {
+    // Solo superadmin, admin y validador pueden modificar contactos
+    if (!['superadmin', 'admin', 'validador'].includes(adminRole)) {
+      return res.status(403).json({
+        success: false,
+        message: 'NO TIENES PERMISOS PARA CREAR CONTACTOS'
+      })
+    }
     if (!userId || !adminId || !periodId || !description) {
       return res.status(400).json({
         success: false,

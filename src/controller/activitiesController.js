@@ -34,6 +34,14 @@ const updateActivityStatus = async (req, res) => {
     const { activityId } = req.params
     const { status, observations, lastAdminId } = req.body
 
+    // Solo superadmin, admin y validador pueden modificar
+    if (!['superadmin', 'admin', 'validador'].includes(req.adminRole)) {
+      return res.status(403).json({
+        success: false,
+        message: 'NO TIENES PERMISOS PARA MODIFICAR ACTIVIDADES'
+      })
+    }
+
     if (!lastAdminId) {
       return res.status(400).json({
         success: false,
@@ -65,6 +73,14 @@ const updateActivity = async (req, res) => {
   try {
     const { activityId } = req.params
     const activityData = { ...req.body }
+
+    // Solo superadmin, admin y validador pueden modificar
+    if (!['superadmin', 'admin', 'validador'].includes(req.adminRole)) {
+      return res.status(403).json({
+        success: false,
+        message: 'NO TIENES PERMISOS PARA MODIFICAR ACTIVIDADES'
+      })
+    }
 
     if (!activityData.lastAdminId) {
       return res.status(400).json({
@@ -119,6 +135,7 @@ const getActivitiesByUserId = async (req, res) => {
 const deleteActivity = async (req, res) => {
   try {
     const { activityId } = req.params
+
     await Activities.deleteActivity(activityId)
     res.status(200).json({
       success: true,
