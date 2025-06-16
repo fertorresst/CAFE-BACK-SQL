@@ -1,6 +1,6 @@
 -- Crear base de datos
-CREATE DATABASE IF NOT EXISTS proyecto_cafe;
-USE proyecto_cafe;
+CREATE DATABASE IF NOT EXISTS cafe;
+USE cafe;
 
 -- =========================
 -- TABLA DE ADMINISTRADORES

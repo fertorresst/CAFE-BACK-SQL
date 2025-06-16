@@ -8,7 +8,8 @@ const {
   createUser,
   updateUserPassword,
   deleteUser,
-  getUserById
+  getUserById,
+  getAllUsersWithActivities
 } = require("../controller/userController")
 
 const { userAuthMiddleware } = require('../auth/userAuthMiddleware')
@@ -34,6 +35,9 @@ router.delete("/delete-user/:id", adminAuthMiddleware, deleteUser)
 
 // Obtener información de un usuario por ID
 router.get("/get-user/:id", userAuthMiddleware, getUserById)
+
+// Obtener todos los estudiantes con sus actividades (solo admin y superadmin)
+router.get("/students-with-activities", adminAuthMiddleware, getAllUsersWithActivities)
 
 // Login usuario
 router.post("/login", loginUser)

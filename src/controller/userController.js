@@ -175,6 +175,35 @@ const getUserById = async (req, res) => {
   }
 }
 
+/**
+ * Obtiene todos los estudiantes con la información de sus actividades enviadas.
+ * Solo accesible para admin y superadmin.
+ * @route GET /users/students-with-activities
+ */
+const getAllUsersWithActivities = async (req, res) => {
+  try {
+    // Validar rol (debe venir del middleware de autenticación)
+    const role = req.admin?.role
+    if (role !== 'admin' && role !== 'superadmin') {
+      return res.status(403).json({
+        success: false,
+        message: 'NO AUTORIZADO'
+      })
+    }
+
+    const students = await User.getAllUsersWithActivities()
+    res.status(200).json({
+      success: true,
+      students
+    })
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: err.message
+    })
+  }
+}
+
 module.exports = {
   getAllUsers,
   createUser,
@@ -182,5 +211,6 @@ module.exports = {
   updateUserPassword,
   deleteUser,
   loginUser,
-  getUserById
+  getUserById,
+  getAllUsersWithActivities,
 }
