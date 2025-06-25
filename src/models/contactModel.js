@@ -183,6 +183,7 @@ class Contact extends IContact {
    * @param {number} lastAdminId - ID del último admin que modificó el contacto
    */
   static async updateContact(id, observations, status, lastAdminId) {
+    console.log('🚀 ~ Contact ~ updateContact ~ lastAdminId:', lastAdminId)
     try {
       const query = `
         UPDATE contact

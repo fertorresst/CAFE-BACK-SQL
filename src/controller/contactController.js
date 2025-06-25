@@ -82,6 +82,7 @@ const deleteContactById = async (req, res) => {
  */
 const updateContact = async (req, res) => {
   const { id, observations, status, lastAdminId } = req.body
+  console.log('🚀 ~ updateContact ~ lastAdminId:', lastAdminId)
   const { adminRole } = req
   try {
     // Solo superadmin, admin y validador pueden modificar contactos

@@ -424,35 +424,58 @@ class User extends IUser {
     `
     const activities = await db.query(activitiesQuery)
 
-    // 3. Agrupar actividades por usuario
+    // 4. Agrupar actividades por usuario
     const activitiesByUser = {}
     for (const act of activities) {
-      if (!act.act_user_id) continue // Validación: debe tener usuario asignado
+      if (!act.act_user_id) continue
       if (!activitiesByUser[act.act_user_id]) activitiesByUser[act.act_user_id] = []
+      let evidenceLinks = []
+      if (act.act_evidence) {
+        try {
+          const evidence = JSON.parse(act.act_evidence.toString())
+          if (typeof evidence === 'object') {
+            evidenceLinks = Object.values(evidence).flat().filter(item => item)
+          }
+        } catch (error) {
+          console.error('Error al parsear JSON de evidencias:', error)
+        }
+      }
+      // Si la actividad está en 'contacted', consulta el con_id en la tabla contact
+      let contactId = null
+      if (act.act_status === 'contacted') {
+        const contactQuery = `
+          SELECT con_id FROM contact
+          WHERE (con_user_id = ? AND con_activity_id = ? AND con_period_id = ?)
+          LIMIT 1
+        `
+        const [contact] = await db.query(contactQuery, [act.act_user_id, act.act_id, act.act_period_id])
+        contactId = contact ? contact.con_id : null
+      }
       activitiesByUser[act.act_user_id].push({
         id: act.act_id,
         name: act.act_name,
-        dateStart: act.act_date_start,
-        dateEnd: act.act_date_end,
+        dateStart: new Date(act.act_date_start).toISOString().split('T')[0],
+        dateEnd: new Date(act.act_date_end).toISOString().split('T')[0],
         hours: act.act_hours,
         institution: act.act_institution,
-        evidence: act.act_evidence,
+        evidenceLinks,
         area: act.act_area,
         status: act.act_status,
         observations: act.act_observations,
         lastAdminId: act.act_last_admin_id,
         periodId: act.act_period_id,
         periodName: act.per_name || '',
+        contactId, // Ahora sí es el con_id real de la tabla contact
         createdAt: act.act_created_at
-          ? new Date(act.act_created_at).toISOString().split("T")[0]
+          ? new Date(act.act_created_at).toLocaleString().split(',')[0]
           : null,
         updatedAt: act.act_updated_at
-          ? new Date(act.act_updated_at).toISOString().split("T")[0]
+          ? new Date(act.act_updated_at).toLocaleString().split(',')[0]
           : null,
       })
     }
 
-    // 4. Unir usuarios con sus actividades
+    // 5. Unir usuarios con sus actividades
     return users.map((user) => ({
       id: user.use_id,
       nua: user.use_nua,
