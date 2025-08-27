@@ -9,6 +9,7 @@ const cookieParser = require('cookie-parser')
 const path = require("path")
 const routes = require("./routes") // Importa el index.js de la carpeta routes
 require("dotenv").config()
+require('./services/queueProcessor')
 
 const app = express()
 
@@ -57,5 +58,5 @@ app.use("/api", routes)
 const PORT = process.env.PORT || 5000
 
 app.listen(PORT, () => {
-  console.log(`SERVIDOR ESCUCHANDO EL EN PUERTO: ${PORT}`)
+  console.log(`-> SERVIDOR ESCUCHANDO EL EN PUERTO: ${PORT}`)
 })

@@ -41,6 +41,7 @@ CREATE TABLE IF NOT EXISTS periods (
     per_exclusive BOOL NOT NULL,
     per_status ENUM('active', 'pending', 'ended') NOT NULL,
     per_create_admin_id INT NOT NULL,
+    per_report_path VARCHAR(255),
     per_created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     per_updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (per_id),
@@ -301,3 +302,67 @@ INSERT INTO contact (con_user_id, con_admin_id, con_period_id, con_activity_id, 
 (2, 3, 9, 22, 'Validación de actividad', 'En proceso', 'in_progress', 3),
 (3, 2, 9, 23, 'Observaciones generales', 'Falta evidencia', 'pending', 2),
 (4, 2, 9, 24, 'Seguimiento', 'Pendiente', 'pending', 2);
+
+-- Actividades adicionales para Carlos López Mendoza (use_id=1, periodo=3)
+INSERT INTO activities (act_name, act_date_start, act_date_end, act_hours, act_institution, act_evidence, act_area, act_status, act_observations, act_last_admin_id, act_user_id, act_period_id) VALUES
+('Curso de Robótica', '2024-03-10', '2024-03-15', 10, 'UNACH', '{"fotos":["/evidence/1747804756857-15ntav.webp"]}', 'DP/VSS', 'approval', '', 2, 1, 3),
+('Congreso de Energía', '2024-04-05', '2024-04-07', 8, 'UNACH', '{"fotos":["/evidence/1747804795180-5eewps.webp"]}', 'RS/VCI', 'rejected', '', 2, 1, 3),
+('Taller de Programación', '2024-05-01', '2024-05-03', 12, 'UNACH', '{"fotos":["/evidence/1747805236754-0y0g8w.webp"]}', 'CEE/EIE', 'approval', '', 2, 1, 3),
+('Seminario de Innovación', '2024-05-10', '2024-05-12', 9, 'UNACH', '{"fotos":["/evidence/1747808313135-oq9fit.webp"]}', 'FCI/ICP', 'rejected', '', 2, 1, 3),
+('Foro de Emprendimiento', '2024-06-01', '2024-06-02', 7, 'UNACH', '{"fotos":["/evidence/1747808366239-uqctja.webp"]}', 'DP/VSS', 'approval', '', 2, 1, 3);
+
+-- Actividades adicionales para María García Sánchez (use_id=2, periodo=3)
+INSERT INTO activities (act_name, act_date_start, act_date_end, act_hours, act_institution, act_evidence, act_area, act_status, act_observations, act_last_admin_id, act_user_id, act_period_id) VALUES
+('Curso de Excel', '2024-03-12', '2024-03-14', 6, 'UNACH', '{"fotos":["/evidence/1748413899812-j376wz.webp"]}', 'RS/VCI', 'approval', '', 3, 2, 3),
+('Taller de Liderazgo', '2024-04-10', '2024-04-12', 8, 'UNACH', '{"fotos":["/evidence/1748413899854-khtw7a.webp"]}', 'CEE/EIE', 'rejected', '', 3, 2, 3),
+('Seminario de Ética', '2024-05-15', '2024-05-16', 10, 'UNACH', '{"fotos":["/evidence/1748562159750-rpy7h1.webp"]}', 'FCI/ICP', 'approval', '', 3, 2, 3),
+('Foro de Tecnología', '2024-06-05', '2024-06-07', 9, 'UNACH', '{"fotos":["/evidence/1748562232149-vs34zu.webp"]}', 'DP/VSS', 'rejected', '', 3, 2, 3),
+('Congreso de Ciencias', '2024-06-20', '2024-06-22', 11, 'UNACH', '{"fotos":["/evidence/1748562262417-1yav58.webp"]}', 'RS/VCI', 'approval', '', 3, 2, 3);
+
+-- Actividades adicionales para José Martínez Pérez (use_id=3, periodo=3)
+INSERT INTO activities (act_name, act_date_start, act_date_end, act_hours, act_institution, act_evidence, act_area, act_status, act_observations, act_last_admin_id, act_user_id, act_period_id) VALUES
+('Taller de Redes', '2024-03-20', '2024-03-22', 10, 'UNACH', '{"fotos":["/evidence/1749013586231-tzivjw.webp"]}', 'CEE/EIE', 'approval', '', 2, 3, 3),
+('Seminario de Seguridad', '2024-04-15', '2024-04-17', 8, 'UNACH', '{"fotos":["/evidence/1749414725583-j24ekh.webp"]}', 'FCI/ICP', 'rejected', '', 2, 3, 3),
+('Foro de Computación', '2024-05-10', '2024-05-12', 12, 'UNACH', '{"fotos":["/evidence/1750867171447-4luviu.webp"]}', 'DP/VSS', 'approval', '', 2, 3, 3),
+('Congreso de Electrónica', '2024-06-01', '2024-06-03', 9, 'UNACH', '{"fotos":["/evidence/1750867171916-qflayp.webp"]}', 'RS/VCI', 'rejected', '', 2, 3, 3),
+('Taller de Innovación', '2024-06-15', '2024-06-17', 7, 'UNACH', '{"fotos":["/evidence/1747795379609-8a11et.webp"]}', 'CEE/EIE', 'approval', '', 2, 3, 3);
+
+-- Actividades adicionales para Laura Hernández Ruiz (use_id=4, periodo=3)
+INSERT INTO activities (act_name, act_date_start, act_date_end, act_hours, act_institution, act_evidence, act_area, act_status, act_observations, act_last_admin_id, act_user_id, act_period_id) VALUES
+('Curso de Arte Digital', '2024-03-25', '2024-03-27', 8, 'UNACH', '{"fotos":["/evidence/1747804756857-15ntav.webp"]}', 'FCI/ICP', 'approval', '', 2, 4, 3),
+('Seminario de Animación', '2024-04-20', '2024-04-22', 10, 'UNACH', '{"fotos":["/evidence/1747804795180-5eewps.webp"]}', 'DP/VSS', 'rejected', '', 2, 4, 3),
+('Foro de Diseño', '2024-05-15', '2024-05-17', 9, 'UNACH', '{"fotos":["/evidence/1747805236754-0y0g8w.webp"]}', 'RS/VCI', 'approval', '', 2, 4, 3),
+('Congreso de Multimedia', '2024-06-10', '2024-06-12', 11, 'UNACH', '{"fotos":["/evidence/1747808313135-oq9fit.webp"]}', 'CEE/EIE', 'rejected', '', 2, 4, 3),
+('Taller de Fotografía', '2024-06-25', '2024-06-27', 7, 'UNACH', '{"fotos":["/evidence/1747808366239-uqctja.webp"]}', 'FCI/ICP', 'approval', '', 2, 4, 3);
+
+-- Actividades adicionales para Carlos López Mendoza (use_id=1, periodo=4)
+INSERT INTO activities (act_name, act_date_start, act_date_end, act_hours, act_institution, act_evidence, act_area, act_status, act_observations, act_last_admin_id, act_user_id, act_period_id) VALUES
+('Curso de Energías Renovables', '2024-07-10', '2024-07-12', 10, 'UNACH', '{"fotos":["/evidence/1748413899812-j376wz.webp"]}', 'DP/VSS', 'approval', '', 2, 1, 4),
+('Seminario de Robótica', '2024-08-05', '2024-08-07', 8, 'UNACH', '{"fotos":["/evidence/1748413899854-khtw7a.webp"]}', 'RS/VCI', 'rejected', '', 2, 1, 4),
+('Foro de Innovación', '2024-09-01', '2024-09-03', 12, 'UNACH', '{"fotos":["/evidence/1748562159750-rpy7h1.webp"]}', 'CEE/EIE', 'approval', '', 2, 1, 4),
+('Congreso de Tecnología', '2024-09-15', '2024-09-17', 9, 'UNACH', '{"fotos":["/evidence/1748562232149-vs34zu.webp"]}', 'FCI/ICP', 'rejected', '', 2, 1, 4),
+('Taller de Emprendimiento', '2024-10-01', '2024-10-03', 7, 'UNACH', '{"fotos":["/evidence/1748562262417-1yav58.webp"]}', 'DP/VSS', 'approval', '', 2, 1, 4);
+
+-- Actividades adicionales para María García Sánchez (use_id=2, periodo=4)
+INSERT INTO activities (act_name, act_date_start, act_date_end, act_hours, act_institution, act_evidence, act_area, act_status, act_observations, act_last_admin_id, act_user_id, act_period_id) VALUES
+('Curso de Presentaciones', '2024-07-12', '2024-07-14', 6, 'UNACH', '{"fotos":["/evidence/1749013586231-tzivjw.webp"]}', 'RS/VCI', 'approval', '', 3, 2, 4),
+('Taller de Comunicación', '2024-08-10', '2024-08-12', 8, 'UNACH', '{"fotos":["/evidence/1749414725583-j24ekh.webp"]}', 'CEE/EIE', 'rejected', '', 3, 2, 4),
+('Seminario de Creatividad', '2024-09-15', '2024-09-16', 10, 'UNACH', '{"fotos":["/evidence/1750867171447-4luviu.webp"]}', 'FCI/ICP', 'approval', '', 3, 2, 4),
+('Foro de Innovación Social', '2024-10-05', '2024-10-07', 9, 'UNACH', '{"fotos":["/evidence/1750867171916-qflayp.webp"]}', 'DP/VSS', 'rejected', '', 3, 2, 4),
+('Congreso de Educación', '2024-10-20', '2024-10-22', 11, 'UNACH', '{"fotos":["/evidence/1747795379609-8a11et.webp"]}', 'RS/VCI', 'approval', '', 3, 2, 4);
+
+-- Actividades adicionales para José Martínez Pérez (use_id=3, periodo=4)
+INSERT INTO activities (act_name, act_date_start, act_date_end, act_hours, act_institution, act_evidence, act_area, act_status, act_observations, act_last_admin_id, act_user_id, act_period_id) VALUES
+('Taller de Bases de Datos', '2024-07-20', '2024-07-22', 10, 'UNACH', '{"fotos":["/evidence/1747804756857-15ntav.webp"]}', 'CEE/EIE', 'approval', '', 2, 3, 4),
+('Seminario de Redes', '2024-08-15', '2024-08-17', 8, 'UNACH', '{"fotos":["/evidence/1747804795180-5eewps.webp"]}', 'FCI/ICP', 'rejected', '', 2, 3, 4),
+('Foro de Inteligencia Artificial', '2024-09-10', '2024-09-12', 12, 'UNACH', '{"fotos":["/evidence/1747805236754-0y0g8w.webp"]}', 'DP/VSS', 'approval', '', 2, 3, 4),
+('Congreso de Computación', '2024-09-25', '2024-09-27', 9, 'UNACH', '{"fotos":["/evidence/1747808313135-oq9fit.webp"]}', 'RS/VCI', 'rejected', '', 2, 3, 4),
+('Taller de Innovación', '2024-10-10', '2024-10-12', 7, 'UNACH', '{"fotos":["/evidence/1747808366239-uqctja.webp"]}', 'CEE/EIE', 'approval', '', 2, 3, 4);
+
+-- Actividades adicionales para Laura Hernández Ruiz (use_id=4, periodo=4)
+INSERT INTO activities (act_name, act_date_start, act_date_end, act_hours, act_institution, act_evidence, act_area, act_status, act_observations, act_last_admin_id, act_user_id, act_period_id) VALUES
+('Curso de Diseño Web', '2024-07-25', '2024-07-27', 8, 'UNACH', '{"fotos":["/evidence/1748413899812-j376wz.webp"]}', 'FCI/ICP', 'approval', '', 2, 4, 4),
+('Seminario de Animación 3D', '2024-08-20', '2024-08-22', 10, 'UNACH', '{"fotos":["/evidence/1748413899854-khtw7a.webp"]}', 'DP/VSS', 'rejected', '', 2, 4, 4),
+('Foro de Ilustración', '2024-09-15', '2024-09-17', 9, 'UNACH', '{"fotos":["/evidence/1748562159750-rpy7h1.webp"]}', 'RS/VCI', 'approval', '', 2, 4, 4),
+('Congreso de Multimedia', '2024-10-10', '2024-10-12', 11, 'UNACH', '{"fotos":["/evidence/1748562232149-vs34zu.webp"]}', 'CEE/EIE', 'rejected', '', 2, 4, 4),
+('Taller de Fotografía Digital', '2024-10-25', '2024-10-27', 7, 'UNACH', '{"fotos":["/evidence/1748562262417-1yav58.webp"]}', 'FCI/ICP', 'approval', '', 2, 4, 4);

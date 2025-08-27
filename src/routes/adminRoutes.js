@@ -40,7 +40,7 @@ router.get("/get-admin/:id", adminAuthMiddleware, getAdminById)
 router.post('/login', loginAdmin)
 
 router.post('/logout', (req, res) => {
-  console.log('CERRANDO SESIÓN')
+  console.log('CERRANDO SESIÓN ADMIN')
   res.clearCookie('admin_token')
   res.json({ success: true, message: 'SESIÓN CERRADA' })
 })

@@ -1,4 +1,7 @@
 const Period = require('../models/periodModel')
+const path = require('path')
+const fs = require('fs')
+const ReportGenerator = require('../services/reportGenerator')
 
 /**
  * Obtiene todos los periodos con estadísticas de actividades.
@@ -266,6 +269,87 @@ const getFinalReport = async (req, res) => {
   }
 }
 
+/**
+ * Descarga el reporte PDF de un periodo finalizado
+ * @route GET /periods/download-report/:id
+ */
+const downloadPeriodReport = async (req, res) => {
+  try {
+    const { id } = req.params
+    const reportPath = await Period.getReportPath(id)
+    
+    if (!reportPath) {
+      // Verificar si el periodo está finalizado
+      const period = await Period.getPeriodInfo(id)
+      if (period.status !== 'ended') {
+        return res.status(400).json({
+          success: false,
+          message: 'EL REPORTE SOLO ESTÁ DISPONIBLE PARA PERIODOS FINALIZADOS'
+        })
+      }
+      
+      // Si el periodo está finalizado pero no tiene reporte, iniciar generación
+      setTimeout(async () => {
+        try {
+          await ReportGenerator.generatePeriodReport(id)
+        } catch (err) {
+          console.error(`Error generando reporte para periodo ${id}:`, err)
+        }
+      }, 100)
+      
+      return res.status(202).json({
+        success: true,
+        message: 'REPORTE EN GENERACIÓN, INTENTE MÁS TARDE',
+        generating: true
+      })
+    }
+    
+    // Enviar archivo para descarga
+    const filePath = path.join(__dirname, '../../uploads', reportPath)
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({
+        success: false,
+        message: 'ARCHIVO DE REPORTE NO ENCONTRADO'
+      })
+    }
+    
+    res.download(filePath)
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: err.message
+    })
+  }
+}
+
+/**
+ * Descarga el reporte PDF de todas las actividades de los usuarios de una carrera y sede en un periodo.
+ * @route GET /periods/download-career-report?periodId=3&career=IS75LI0203&sede=YURIRIA
+ */
+const downloadCareerReport = async (req, res) => {
+  try {
+    const { periodId, career, sede } = req.query
+    if (!periodId || !career || !sede) {
+      return res.status(400).json({
+        success: false,
+        message: 'Faltan parámetros: periodId, career y sede son obligatorios'
+      })
+    }
+    const pdfBuffer = await ReportGenerator.generateCareerReport(periodId, career, sede)
+    console.log('Tamaño del PDF generado:', pdfBuffer.length)
+    res.setHeader('Content-Type', 'application/pdf')
+    res.setHeader('Content-Disposition', `attachment; filename="reporte-${career}-${sede}-periodo${periodId}.pdf"`)
+    res.end(pdfBuffer) // <-- Usa end, no send
+  } catch (err) {
+    console.error('Error en downloadCareerReport:', err)
+    res.status(500).json({
+      success: false,
+      message: err.message,
+      stack: err.stack
+    })
+  }
+}
+
 module.exports = {
   getAllPeriods,
   getPeriodInfo,
@@ -276,5 +360,7 @@ module.exports = {
   getAllPeriodActivities,
   getAreaCountsByPeriodId,
   getPeriodForDownload,
-  getFinalReport
+  getFinalReport,
+  downloadPeriodReport,
+  downloadCareerReport
 }

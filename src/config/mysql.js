@@ -21,7 +21,8 @@ connection.getConnection((err, conn) => {
     console.log('ERROR AL CONECTAR DB =>', err)
   }
   if (conn) {
-    console.log('DB CONECTADA\n')
+    console.log('-> DB CONECTADA')
+    console.log('------------------------------------------------\n')
     conn.release()
   }
 })

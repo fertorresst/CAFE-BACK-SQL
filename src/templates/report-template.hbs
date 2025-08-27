@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>REPORTE DE ACTIVIDADES ENVIADAS EN EL PERIODO {{period.per_name}}</title>
+  <style>
+    @font-face {
+      font-family: 'Gandhi Sans';
+      src: url('file:///{{fontsPath}}/GandhiSans/GandhiSans-Regular.otf') format('opentype');
+      font-weight: 400;
+    }
+    @font-face {
+      font-family: 'Gandhi Sans';
+      src: url('file:///{{fontsPath}}/GandhiSans/GandhiSans-Bold.otf') format('opentype');
+      font-weight: 700;
+    }
+    @font-face {
+      font-family: 'Raleway';
+      src: url('file:///{{fontsPath}}/Raleway/Raleway-Regular.ttf') format('truetype');
+      font-weight: 400;
+    }
+    @font-face {
+      font-family: 'Raleway';
+      src: url('file:///{{fontsPath}}/Raleway/Raleway-Bold.ttf') format('truetype');
+      font-weight: 700;
+    }
+    @font-face {
+      font-family: 'Novecento Wide';
+      src: url('file:///{{fontsPath}}/NovecentoSans/Novecento-Wide-Bold.otf') format('opentype');
+      font-weight: 700;
+    }
+
+    body {
+      font-family: 'Gandhi Sans', sans-serif !important;
+      margin: 0; 
+      padding: 20px; 
+      text-transform: uppercase;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      font-family: 'Novecento Wide', 'Oswald', sans-serif;
+    }
+    table, th, td {
+      border: 1px solid #000;
+      border-collapse: collapse;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    th, td {
+      padding: 4px 8px;
+      text-align: center;
+    }
+    span, strong {
+      font-family: 'Gandhi Sans', sans-serif;
+      font-size: 10px;
+    }
+    .subtitle {
+      font-family: 'Raleway', sans-serif;
+    }
+    h1 { text-align: center; }
+    .table-period { width: 100%; margin-bottom: 40px; }
+    .table-student { margin-right: auto; margin-bottom: 20px; }
+    .table-activity { width: 100%; margin-bottom: 20px; }
+    .table-activity th, .table-activity td { text-align: left; }
+    .student { margin-bottom: 30px; border-bottom: 1px solid #ccc; padding-bottom: 20px; }
+    .student-name { margin-top: 20px; margin-bottom: 10px; font-size: 20px; font-weight: bold; text-align: center; }
+    .student-info { font-size: 14px; }
+    .activities-title { font-size: 16px; font-weight: bold; margin-top: 15px; }
+    .activity { margin-bottom: 15px; }
+    .activity-status-approval { color: green; }
+    .activity-status-rejected { color: red; }
+    .evidences {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+      justify-content: center;
+    }
+    .evidence-img {
+      max-width: 48%;
+      max-height: 95px;
+      height: auto;
+      object-fit: contain;
+      margin-bottom: 4px;
+      margin-top: 4px;
+      display: block;
+    }
+    @media print {
+      .page-break { page-break-after: always; }
+    }
+
+    /* Excepción para los correos electrónicos */
+    .email {
+      text-transform: none;
+    }
+    .text-center {
+      text-align: center;
+    }
+    .table-activity td[rowspan="3"] {
+      vertical-align: top;
+      text-align: left;
+      padding: 8px;
+    }
+  </style>
+</head>
+<body>
+  <h1>REPORTE DE ACTIVIDADES ENVIADAS EN EL PERIODO {{period.per_name}}</h1>
+
+  <table class="table-period">
+    <tr>
+      <th>FECHA DE INICIO</th>
+      <th>FECHA DE FIN</th>
+      <th>TIPO</th>
+      <th>TOTAL DE ESTUDIANTES</th>
+    </tr>
+    <tr>
+      <td>{{formatDate period.per_date_start}}</td>
+      <td>{{formatDate period.per_date_end}}</td>
+      <td>{{#if period.per_exclusive}}EXCLUSIVO{{else}}REGULAR{{/if}}</td>
+      <td>{{students.length}}</td>
+    </tr>
+  </table>
+
+  <br>
+
+  <h2 class="subtitle text-center">LISTADO DE ESTUDIANTES</h2>
+
+  {{#each students}}
+  <div class="student">
+    <div class="student-name">{{use_name}} {{use_last_name}} {{use_second_last_name}}</div>
+
+    <table class="table-student">
+      <tr>
+        <td>
+          <strong>NUA:</strong>
+          <span>{{use_nua}}</span>
+        </td>
+        <td>
+          <strong>CORREO: </strong>
+          <span class="email">{{use_email}}</span>
+        </td>
+        <td>
+          <strong>TELÉFONO:</strong>
+          <span>{{use_phone}}</span>
+        </td>
+      </tr>
+      <tr>
+        <td>
+          <strong>SEDE:</strong>
+          <span>{{use_sede}}</span>
+        </td>
+        <td colspan="2">
+          <strong>PROGRAMA ACADÉMICO:</strong>
+          <span>{{career_full_name}}</span>
+        </td>
+      </tr>
+    </table>
+    
+    <div class="activities-title">ACTIVIDADES:</div>
+
+    {{#each activities}}
+    <div class="activity">
+      <table class="table-activity">
+        <tr>
+          <td colspan="4">
+            <strong>NOMBRE DE LA ACTIVIDAD: </strong>
+            <span class="activity-status-{{act_status}}">
+              ({{#if (eq act_status "approval")}}APROBADA{{else}}RECHAZADA{{/if}})
+            </span>
+            <br>
+            <span>{{act_name}}</span>
+          </td>
+          <td rowspan="3" style="width: 50%;">
+            <strong>EVIDENCIAS:</strong>
+            <div class="evidences">
+              {{#each evidenceBase64}}
+                <img src="{{this}}" class="evidence-img" />
+              {{/each}}
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td colspan="4">
+            <strong>INSTITUCIÓN ORGANIZADORA:</strong>
+            <br>
+            <span>{{act_institution}}</span>
+          </td>
+        </tr>
+        <tr>
+          <td>
+            <strong>FECHA DE INICIO:</strong>
+            <br>
+            <span>{{formatDate act_date_start}}</span>
+          </td>
+          <td>
+            <strong>FECHA DE FIN:</strong>
+            <br>
+            <span>{{formatDate act_date_end}}</span>
+          </td>
+          <td>
+            <strong>HORAS:</strong>
+            <br>
+            <span>{{act_hours}}</span>
+          </td>
+          <td>
+            <strong>AREA:</strong>
+            <br>
+            <span>{{act_area}}</span>
+          </td>
+        </tr>
+      </table>
+    </div>
+    {{/each}}
+  </div>
+  {{#unless @last}}<div class="page-break"></div>{{/unless}}
+  {{/each}}
+</body>
+</html>

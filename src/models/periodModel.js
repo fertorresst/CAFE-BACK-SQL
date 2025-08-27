@@ -272,21 +272,44 @@ class Period extends IPeriod {
       if (!['active', 'pending', 'ended'].includes(status)) {
         throw new Error(`LOS ESTADOS PERMITIDOS SON 'active', 'pending' y 'ended'`)
       }
+      
+      // Validar estado actual
       const query = `
         SELECT per_id, per_status 
         FROM periods
-        WHERE per_id = ? AND per_status = ?
+        WHERE per_id = ?
       `
-      const checkStatus = await db.query(query, [id, status])
-      if (checkStatus && checkStatus.length > 0) {
+      const [currentPeriod] = await db.query(query, [id])
+      if (!currentPeriod) {
+        throw new Error(`NO SE ENCONTRÓ EL PERIODO CON ID ${id}`)
+      }
+      
+      if (currentPeriod.per_status === status) {
         throw new Error(`NO HA SIDO POSIBLE ACTUALIZAR EL PERIODO ${id} YA QUE SU ESTADO ES EL MISMO AL QUE SE QUIERE ACTUALIZAR ${status}`)
       }
+      
+      // Actualizar estado
       const updateQuery = `
         UPDATE periods 
         SET per_status = ?
         WHERE per_id = ?
       `
       await db.query(updateQuery, [status, id])
+      
+      // Si el estado es 'ended', iniciar generación del reporte
+      if (status === 'ended') {
+        // Iniciar generación en segundo plano
+        setTimeout(async () => {
+          try {
+            const ReportGenerator = require('../services/reportGenerator')
+            await ReportGenerator.generatePeriodReport(id)
+          } catch (err) {
+            console.error(`Error al generar reporte para periodo ${id}:`, err)
+          }
+        }, 100)
+        console.log(`Generación de reporte para periodo ${id} iniciada en segundo plano`)
+      }
+      
       return new Period(id, status)
     } catch (err) {
       console.log('ERROR =>', err)
@@ -453,6 +476,24 @@ class Period extends IPeriod {
     } catch (err) {
       console.log('ERROR =>', err)
       throw new Error(err.message || 'ERROR AL GENERAR EL REPORTE FINAL')
+    }
+  }
+
+  /**
+   * Obtiene la ruta del reporte de un periodo
+   * @param {number} id - ID del periodo
+   * @returns {Promise<string>} Ruta del reporte
+   */
+  static async getReportPath(id) {
+    try {
+      if (!id) throw new Error('SE REQUIERE UN ID DE PERIODO VÁLIDO')
+      const query = `SELECT per_report_path FROM periods WHERE per_id = ?`
+      const [period] = await db.query(query, [id])
+      if (!period) throw new Error('PERIODO NO ENCONTRADO')
+      return period.per_report_path
+    } catch (err) {
+      console.log('ERROR =>', err)
+      throw new Error(err.message || 'ERROR AL OBTENER LA RUTA DEL REPORTE')
     }
   }
 }
