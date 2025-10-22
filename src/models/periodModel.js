@@ -496,6 +496,35 @@ class Period extends IPeriod {
       throw new Error(err.message || 'ERROR AL OBTENER LA RUTA DEL REPORTE')
     }
   }
+
+  /**
+   * Obtiene las carreras que tienen actividades en un periodo específico filtrado por sede
+   * @param {number} periodId - ID del periodo
+   * @param {string} sede - Nombre de la sede ('SALAMANCA' o 'YURIRIA')
+   * @returns {Promise<Array<string>>} Array de códigos de carrera
+   */
+  static async getCareersWithActivities(periodId, sede) {
+    try {
+      if (!periodId) throw new Error('SE REQUIERE UN ID DE PERIODO VÁLIDO')
+      if (!sede) throw new Error('SE REQUIERE UNA SEDE VÁLIDA')
+      
+      const query = `
+        SELECT DISTINCT u.use_career as career
+        FROM activities a
+        INNER JOIN users u ON a.act_user_id = u.use_id
+        WHERE a.act_period_id = ? 
+          AND u.use_sede = ?
+          AND a.act_status IN ('pending', 'approval', 'rejected', 'contacted')
+        ORDER BY u.use_career
+      `
+      
+      const results = await db.query(query, [periodId, sede])
+      return results.map(row => row.career)
+    } catch (err) {
+      console.log('ERROR =>', err)
+      throw new Error(err.message || 'ERROR AL OBTENER LAS CARRERAS CON ACTIVIDADES')
+    }
+  }
 }
 
 module.exports = Period

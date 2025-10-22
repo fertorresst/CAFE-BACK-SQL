@@ -244,6 +244,101 @@ const loginAdmin = async (req, res) => {
   }
 }
 
+/**
+ * Obtiene el perfil del administrador autenticado.
+ * @route GET /admins/profile
+ */
+const getProfile = async (req, res) => {
+  try {
+    const adminId = req.admin.id // Viene del middleware de autenticación
+    const admin = await Admin.getAdminById(adminId)
+    res.status(200).json({
+      success: true,
+      admin
+    })
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: err.message
+    })
+  }
+}
+
+/**
+ * Actualiza el perfil del administrador autenticado.
+ * @route PUT /admins/update-profile
+ */
+const updateProfile = async (req, res) => {
+  try {
+    const adminId = req.admin.id
+    const adminRole = req.admin.role
+
+    // Solo superadmin y admin pueden editar su perfil
+    if (adminRole !== 'superadmin' && adminRole !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'NO TIENES PERMISOS PARA EDITAR TU PERFIL'
+      })
+    }
+
+    const { name, lastName, secondLastName, email, phone } = req.body
+
+    // Validar campos requeridos
+    if (!name || !lastName || !email || !phone) {
+      return res.status(400).json({
+        success: false,
+        message: 'TODOS LOS CAMPOS SON OBLIGATORIOS'
+      })
+    }
+
+    // Validar formato de email
+    const emailRegex = /.+@ugto\.mx$/
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({
+        success: false,
+        message: 'EL CORREO ELECTRÓNICO NO ES VÁLIDO'
+      })
+    }
+
+    // Validar longitud del teléfono (debe ser 10 dígitos)
+    const phoneDigits = phone.replace(/\D/g, '')
+    if (phoneDigits.length !== 10) {
+      return res.status(400).json({
+        success: false,
+        message: 'EL TELÉFONO DEBE TENER 10 DÍGITOS'
+      })
+    }
+
+    // Actualizar solo campos permitidos
+    const data = {
+      name,
+      lastName,
+      secondLastName: secondLastName || null,
+      email,
+      phone: phoneDigits
+    }
+
+    const updated = await Admin.updateAdminProfile(adminId, data)
+    
+    if (updated) {
+      res.status(200).json({
+        success: true,
+        message: 'PERFIL ACTUALIZADO CORRECTAMENTE'
+      })
+    } else {
+      res.status(400).json({
+        success: false,
+        message: 'NO SE PUDO ACTUALIZAR EL PERFIL'
+      })
+    }
+  } catch (err) {
+    res.status(400).json({
+      success: false,
+      message: err.message
+    })
+  }
+}
+
 module.exports = {
   getAllAdmins,
   createAdmin,
@@ -252,5 +347,7 @@ module.exports = {
   setAdminActive,
   deleteAdmin,
   loginAdmin,
-  getAdminById
+  getAdminById,
+  getProfile,
+  updateProfile
 }

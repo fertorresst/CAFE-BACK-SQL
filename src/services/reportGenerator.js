@@ -225,8 +225,8 @@ class ReportGenerator {
     // 1. Obtener los datos filtrados
     const reportData = await this.getCareerReportData(periodId, career, sede)
 
-    // 2. Generar el PDF y devolver el buffer
-    return await this.createPDFBufferWithPuppeteer(reportData)
+    // 2. Generar el PDF con el template específico para carrera
+    return await this.createPDFBufferWithPuppeteer(reportData, 'report-career-template.hbs')
   }
 
   // Obtiene los datos filtrados por periodo, carrera y sede
@@ -265,16 +265,19 @@ class ReportGenerator {
       ORDER BY u.use_last_name, u.use_name
     `, [periodId, career, sede])
 
-    // RESTRICCIÓN: Si no hay estudiantes, lanza error
     if (!students || students.length === 0) {
       throw new Error('No se encontraron estudiantes con actividades para los filtros seleccionados.')
     }
 
+    // Enriquecer data por alumno (opcional)
     for (const student of students) {
       student.career_full_name = `${student.use_career} - ${careerNames[student.use_career] || student.use_career}`
     }
 
-    // Obtener actividades para cada estudiante
+    // Variables globales del reporte (iguales para todo el documento)
+    const careerFullName = `${career} - ${careerNames[career] || career}`
+
+    // Obtener actividades por alumno
     for (const student of students) {
       student.activities = await db.query(`
         SELECT 
@@ -284,7 +287,6 @@ class ReportGenerator {
         WHERE act_user_id = ? AND act_period_id = ?
       `, [student.use_id, periodId])
 
-      // Procesar evidencias (igual que en tu flujo actual)
       for (const activity of student.activities) {
         try {
           activity.evidenceLinks = []
@@ -292,19 +294,13 @@ class ReportGenerator {
           if (activity.act_evidence) {
             const evidence = JSON.parse(activity.act_evidence.toString())
             if (typeof evidence === 'object') {
-              const links = Object.values(evidence)
-                .flat()
-                .filter(item => item)
-                .slice(0, 2)
+              const links = Object.values(evidence).flat().filter(Boolean).slice(0, 2)
               for (const link of links) {
                 try {
                   const imagePath = path.join(__dirname, '../../uploads', link)
                   if (fs.existsSync(imagePath)) {
                     const imageBuffer = fs.readFileSync(imagePath)
-                    const resizedBuffer = await sharp(imageBuffer)
-                      .resize({ width: 600 })
-                      .webp({ quality: 70 })
-                      .toBuffer()
+                    const resizedBuffer = await sharp(imageBuffer).resize({ width: 600 }).webp({ quality: 70 }).toBuffer()
                     const base64Image = `data:image/webp;base64,${resizedBuffer.toString('base64')}`
                     activity.evidenceBase64.push(base64Image)
                   }
@@ -314,29 +310,28 @@ class ReportGenerator {
               }
             }
           }
-        } catch (e) {
+        } catch {
           activity.evidenceLinks = []
           activity.evidenceBase64 = []
         }
       }
     }
 
-    return { period, students }
+    // Devolvemos las nuevas variables en el objeto raíz para el template
+    return { period, students, sede, careerFullName }
   }
 
   // Genera el PDF y devuelve el buffer (no lo guarda en disco)
-  static async createPDFBufferWithPuppeteer(reportData) {
+  static async createPDFBufferWithPuppeteer(reportData, templateFile = 'report-template.hbs') {
     const fontsPath = path.resolve(__dirname, '../fonts').replace(/\\/g, '/')
-    const templatePath = path.join(__dirname, '../templates/report-template.hbs')
+    const templatePath = path.join(__dirname, '../templates', templateFile)
     if (!fs.existsSync(templatePath)) {
       throw new Error(`Template no encontrado: ${templatePath}`)
     }
 
-    // REGISTRA LOS HELPERS ANTES DE COMPILAR
-    Handlebars.registerHelper('eq', function(a, b) {
-      return a === b
-    })
-    Handlebars.registerHelper('formatDate', function(date) {
+    // Helpers
+    Handlebars.registerHelper('eq', (a, b) => a === b)
+    Handlebars.registerHelper('formatDate', function (date) {
       if (!date) return ''
       const d = new Date(date)
       return d.toLocaleDateString('es-MX')
@@ -348,13 +343,7 @@ class ReportGenerator {
 
     const browser = await puppeteer.launch({
       headless: 'new',
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--font-render-hinting=none',
-        '--disable-web-security',
-        '--allow-file-access-from-files'
-      ]
+      args: ['--no-sandbox', '--disable-setuid-sandbox', '--font-render-hinting=none', '--disable-web-security', '--allow-file-access-from-files']
     })
     const page = await browser.newPage()
     await page.setContent(html, { waitUntil: 'networkidle0', timeout: 60000 })
@@ -363,19 +352,13 @@ class ReportGenerator {
     const pdfBuffer = await page.pdf({
       format: 'Letter',
       printBackground: true,
-      margin: {
-        top: '1cm',
-        right: '1cm',
-        bottom: '2cm',
-        left: '1cm'
-      },
+      margin: { top: '1cm', right: '1cm', bottom: '2cm', left: '1cm' },
       displayHeaderFooter: true,
       headerTemplate: '<span></span>',
       footerTemplate: `
         <div style="width:100%;font-size:10px;color:#444;text-align:center;padding:5px 0;">
           Página <span class="pageNumber"></span> de <span class="totalPages"></span>
-        </div>
-      `
+        </div>`
     })
     await browser.close()
     return pdfBuffer

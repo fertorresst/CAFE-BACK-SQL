@@ -333,6 +333,64 @@ class Admin {
         : null,
     };
   }
+
+  /**
+   * Actualiza el perfil de un administrador (campos limitados).
+   * Solo permite actualizar: nombre, apellidos, teléfono, email.
+   * @param {number} id - ID del administrador.
+   * @param {Object} data - Datos a actualizar.
+   * @returns {Promise<boolean>} true si la actualización fue exitosa.
+   */
+  static async updateAdminProfile(id, data) {
+    if (!id) throw new Error("ID DEL ADMINISTRADOR ES REQUERIDO");
+
+    // Validar campos requeridos
+    const requiredFields = ["name", "lastName", "email", "phone"];
+    for (const field of requiredFields) {
+      if (!data[field]) throw new Error(`EL CAMPO '${field}' ES OBLIGATORIO`);
+    }
+
+    // Validar unicidad de email y teléfono (excluyendo el propio admin)
+    const uniqueQuery = `
+      SELECT adm_id FROM admins 
+      WHERE (adm_email = ? OR adm_phone = ?) AND adm_id <> ?
+    `;
+    const existing = await db.query(uniqueQuery, [data.email, data.phone, id]);
+    if (existing.length > 0) {
+      throw new Error("EL CORREO O TELÉFONO YA ESTÁ REGISTRADO");
+    }
+
+    // Validar formato de email
+    const emailRegex = /.+@ugto\.mx$/;
+    if (!emailRegex.test(data.email)) {
+      throw new Error("EL CORREO ELECTRÓNICO NO ES VÁLIDO");
+    }
+
+    // Validar longitud del teléfono
+    if (!/^\d{10}$/.test(data.phone)) {
+      throw new Error("EL TELÉFONO DEBE TENER 10 DÍGITOS");
+    }
+
+    // Actualizar solo campos de perfil (NO rol ni estado activo)
+    const updateQuery = `
+      UPDATE admins SET
+        adm_name = ?,
+        adm_last_name = ?,
+        adm_second_last_name = ?,
+        adm_phone = ?,
+        adm_email = ?
+      WHERE adm_id = ?
+    `;
+    const result = await db.query(updateQuery, [
+      data.name,
+      data.lastName,
+      data.secondLastName || null,
+      data.phone,
+      data.email,
+      id,
+    ]);
+    return result.affectedRows > 0;
+  }
 }
 
 module.exports = Admin;

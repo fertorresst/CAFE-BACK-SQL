@@ -204,6 +204,134 @@ const getAllUsersWithActivities = async (req, res) => {
   }
 }
 
+/**
+ * Obtiene el perfil del estudiante autenticado.
+ * @route GET /users/profile
+ */
+const getProfile = async (req, res) => {
+  try {
+    const userId = req.user.id // Viene del middleware de autenticación
+    const user = await User.getUserById(userId)
+    res.status(200).json({
+      success: true,
+      user
+    })
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: err.message
+    })
+  }
+}
+
+/**
+ * Actualiza el perfil del estudiante autenticado.
+ * Permite actualizar: nombre, apellidos, teléfono, email, NUA, carrera, sede.
+ * @route PUT /users/update-profile
+ */
+const updateProfile = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { name, lastName, secondLastName, email, phone, nua, career, sede } = req.body;
+
+    // Validar campos requeridos
+    if (!name || !lastName || !email || !phone || !nua || !career || !sede) {
+      return res.status(400).json({
+        success: false,
+        message: 'TODOS LOS CAMPOS SON OBLIGATORIOS'
+      });
+    }
+
+    // Validar formato de NUA
+    if (isNaN(nua) || nua.toString().length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: 'EL NUA DEBE TENER AL MENOS 6 DÍGITOS'
+      });
+    }
+
+    // Validar formato de email
+    const emailRegex = /.+@ugto\.mx$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({
+        success: false,
+        message: 'EL CORREO ELECTRÓNICO DEBE SER INSTITUCIONAL (@ugto.mx)'
+      });
+    }
+
+    // Validar longitud del teléfono (debe ser 10 dígitos)
+    const phoneDigits = phone.replace(/\D/g, '');
+    if (phoneDigits.length !== 10) {
+      return res.status(400).json({
+        success: false,
+        message: 'EL TELÉFONO DEBE TENER 10 DÍGITOS'
+      });
+    }
+
+    // Validar carrera
+    const validCareers = [
+      "IS75LI0103",
+      "IS75LI0203",
+      "IS75LI0303",
+      "IS75LI03Y3",
+      "IS75LI0403",
+      "IS75LI0502",
+      "IS75LI05Y2",
+      "IS75LI0602",
+      "IS75LI06Y2",
+      "IS75LI0702",
+      "IS75LI0801",
+      "IS75LI08Y2",
+    ];
+    if (!validCareers.includes(career)) {
+      return res.status(400).json({
+        success: false,
+        message: 'LA CARRERA SELECCIONADA NO ES VÁLIDA'
+      });
+    }
+
+    // Validar sede
+    const validSedes = ["SALAMANCA", "YURIRIA"];
+    if (!validSedes.includes(sede.toUpperCase())) {
+      return res.status(400).json({
+        success: false,
+        message: 'LA SEDE DEBE SER "SALAMANCA" O "YURIRIA"'
+      });
+    }
+
+    // Actualizar todos los campos de perfil (incluye NUA, carrera, sede)
+    const data = {
+      nua: Number(nua),
+      name,
+      lastName,
+      secondLastName: secondLastName || null,
+      email,
+      phone: phoneDigits,
+      career,
+      sede: sede.toUpperCase()
+    };
+
+    const updated = await User.updateUserProfile(userId, data);
+    
+    if (updated) {
+      res.status(200).json({
+        success: true,
+        message: 'PERFIL ACTUALIZADO CORRECTAMENTE'
+      });
+    } else {
+      res.status(400).json({
+        success: false,
+        message: 'NO SE PUDO ACTUALIZAR EL PERFIL'
+      });
+    }
+  } catch (err) {
+    res.status(400).json({
+      success: false,
+      message: err.message
+    });
+  }
+}
+
 module.exports = {
   getAllUsers,
   createUser,
@@ -213,4 +341,6 @@ module.exports = {
   loginUser,
   getUserById,
   getAllUsersWithActivities,
+  getProfile,
+  updateProfile
 }

@@ -287,6 +287,112 @@ class User extends IUser {
   }
 
   /**
+   * Actualiza el perfil de un usuario (campos extendidos).
+   * Permite actualizar: nombre, apellidos, teléfono, email, NUA, carrera, sede.
+   * @param {number} id - ID del usuario.
+   * @param {Object} data - Datos a actualizar.
+   * @returns {Promise<boolean>} true si la actualización fue exitosa.
+   */
+  static async updateUserProfile(id, data) {
+    if (!id) throw new Error("ID DEL USUARIO ES REQUERIDO");
+
+    // Validar campos requeridos
+    const requiredFields = ["name", "lastName", "email", "phone", "nua", "career", "sede"];
+    for (const field of requiredFields) {
+      if (!data[field]) throw new Error(`EL CAMPO '${field}' ES OBLIGATORIO`);
+    }
+
+    // Validar unicidad de NUA (excluyendo el propio usuario)
+    const nuaQuery = `
+      SELECT use_id FROM users 
+      WHERE use_nua = ? AND use_id <> ?
+    `;
+    const existingNua = await db.query(nuaQuery, [data.nua, id]);
+    if (existingNua.length > 0) {
+      throw new Error("EL NUA YA ESTÁ REGISTRADO");
+    }
+
+    // Validar unicidad de email (excluyendo el propio usuario)
+    const emailQuery = `
+      SELECT use_id FROM users 
+      WHERE use_email = ? AND use_id <> ?
+    `;
+    const existingEmail = await db.query(emailQuery, [data.email, id]);
+    if (existingEmail.length > 0) {
+      throw new Error("EL CORREO ELECTRÓNICO YA ESTÁ REGISTRADO");
+    }
+
+    // Validar formato de NUA
+    if (isNaN(data.nua) || data.nua.toString().length < 6) {
+      throw new Error("EL NUA DEBE TENER AL MENOS 6 DÍGITOS");
+    }
+
+    // Validar formato de email
+    const emailRegex = /.+@ugto\.mx$/;
+    if (!emailRegex.test(data.email)) {
+      throw new Error(
+        "EL CORREO ELECTRÓNICO DEBE SER INSTITUCIONAL (@ugto.mx)"
+      );
+    }
+
+    // Validar longitud del teléfono
+    if (!/^\d{10}$/.test(data.phone)) {
+      throw new Error("EL TELÉFONO DEBE TENER 10 DÍGITOS");
+    }
+
+    // Validar carrera
+    const validCareers = [
+      "IS75LI0103",
+      "IS75LI0203",
+      "IS75LI0303",
+      "IS75LI03Y3",
+      "IS75LI0403",
+      "IS75LI0502",
+      "IS75LI05Y2",
+      "IS75LI0602",
+      "IS75LI06Y2",
+      "IS75LI0702",
+      "IS75LI0801",
+      "IS75LI08Y2",
+    ];
+    if (!validCareers.includes(data.career)) {
+      throw new Error("LA CARRERA SELECCIONADA NO ES VÁLIDA");
+    }
+
+    // Validar sede
+    const validSedes = ["SALAMANCA", "YURIRIA"];
+    if (!validSedes.includes(data.sede.toUpperCase())) {
+      throw new Error("LA SEDE DEBE SER 'SALAMANCA' O 'YURIRIA'");
+    }
+
+    // Actualizar todos los campos de perfil (incluye NUA, carrera, sede)
+    const updateQuery = `
+      UPDATE users SET
+        use_nua = ?,
+        use_name = ?,
+        use_last_name = ?,
+        use_second_last_name = ?,
+        use_phone = ?,
+        use_email = ?,
+        use_career = ?,
+        use_sede = ?
+      WHERE use_id = ?
+    `;
+    const result = await db.query(updateQuery, [
+      data.nua,
+      data.name,
+      data.lastName,
+      data.secondLastName || null,
+      data.phone,
+      data.email,
+      data.career,
+      data.sede.toUpperCase(),
+      id,
+    ]);
+    return result.affectedRows > 0;
+  }
+
+  /**
    * Elimina un usuario del sistema.
    * @param {number} id - ID del usuario.
    * @returns {Promise<boolean>}

@@ -9,7 +9,9 @@ const {
   updateUserPassword,
   deleteUser,
   getUserById,
-  getAllUsersWithActivities
+  getAllUsersWithActivities,
+  getProfile,
+  updateProfile
 } = require("../controller/userController")
 
 const { userAuthMiddleware } = require('../auth/userAuthMiddleware')
@@ -49,12 +51,11 @@ router.post('/logout', (req, res) => {
   res.json({ success: true, message: 'SESIÓN DE USUARIO CERRADA' })
 })
 
-// Middleware de autenticación para rutas protegidas
-router.get('/me', userAuthMiddleware, (req, res) => {
-  res.json({
-    success: true,
-    user: req.user
-  })
-})
+// Obtener datos completos del usuario autenticado
+router.get('/me', userAuthMiddleware, getProfile)
+
+// Rutas de perfil del estudiante autenticado
+router.get('/profile', userAuthMiddleware, getProfile);
+router.put('/update-profile', userAuthMiddleware, updateProfile);
 
 module.exports = router

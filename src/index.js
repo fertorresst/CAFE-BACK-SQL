@@ -24,6 +24,12 @@ const app = express()
 app.use("/evidence", express.static(path.join(__dirname, '../uploads/evidence')))
 
 /**
+ * Sirve archivos estáticos de códigos QR desde /uploads/qr-codes
+ * Accesibles vía: http://localhost:PUERTO/qr-codes/archivo.png
+ */
+app.use("/qr-codes", express.static(path.join(__dirname, '../uploads/qr-codes')))
+
+/**
  * Habilita CORS para permitir peticiones desde otros orígenes (frontend)
  */
 app.use(cors({

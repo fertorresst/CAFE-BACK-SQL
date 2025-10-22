@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS admins (
     adm_phone VARCHAR(15) NOT NULL,
     adm_active BOOL NOT NULL DEFAULT 1,
     adm_role ENUM('superadmin', 'admin', 'validador', 'consulta') NOT NULL DEFAULT 'admin',
-    adm_profile_picture VARCHAR(255), -- Nuevo campo: foto de perfil opcional
+    adm_profile_picture VARCHAR(255),
     adm_created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     adm_updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (adm_id),
@@ -81,7 +81,7 @@ CREATE TABLE IF NOT EXISTS users (
     use_email VARCHAR(100) NOT NULL,
     use_password VARCHAR(255) NOT NULL,
     use_sede ENUM('SALAMANCA', 'YURIRIA') NOT NULL,
-    use_profile_picture VARCHAR(255), -- Nuevo campo: foto de perfil opcional
+    use_profile_picture VARCHAR(255),
     use_created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     use_updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (use_id),
@@ -102,7 +102,7 @@ CREATE TABLE IF NOT EXISTS activities (
     act_hours INT NOT NULL,
     act_institution VARCHAR(100) NOT NULL,
     act_evidence JSON NOT NULL,
-    act_area ENUM('DP/VSS', 'RS/VCI', 'CEE/EIE', 'FCI/ICP', 'AC') NOT NULL, -- Actualizado
+    act_area ENUM('DP/VSS', 'RS/VCI', 'CEE/EIE', 'FCI/ICP', 'AC') NOT NULL,
     act_status ENUM('approval', 'pending', 'rejected', 'contacted') NOT NULL,
     act_observations TEXT,
     act_last_admin_id INT,
@@ -143,7 +143,7 @@ CREATE TABLE IF NOT EXISTS contact (
     con_description TEXT NOT NULL,
     con_observations TEXT,
     con_status ENUM('pending', 'in_progress', 'resolved', 'cancelled') NOT NULL DEFAULT 'pending',
-    con_last_admin_id INT, -- Nuevo campo: último admin que modificó el contacto
+    con_last_admin_id INT,
     con_created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     con_updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (con_id),
@@ -172,7 +172,44 @@ CREATE TABLE IF NOT EXISTS contact (
     INDEX idx_contact_admin (con_admin_id),
     INDEX idx_contact_period (con_period_id),
     INDEX idx_contact_status (con_status),
-    INDEX idx_contact_last_admin (con_last_admin_id) -- Índice para el nuevo campo
+    INDEX idx_contact_last_admin (con_last_admin_id)
+);
+
+-- =========================
+-- TABLA DE QR CODES POR CARRERA Y ÁREA
+-- =========================
+CREATE TABLE IF NOT EXISTS qr_codes (
+    qr_id INT NOT NULL AUTO_INCREMENT,
+    qr_career ENUM(
+        'IS75LI0103',
+        'IS75LI0203',
+        'IS75LI0303',
+        'IS75LI03Y3',
+        'IS75LI0403',
+        'IS75LI0502',
+        'IS75LI05Y2',
+        'IS75LI0602',
+        'IS75LI06Y2',
+        'IS75LI0702',
+        'IS75LI0801',
+        'IS75LI08Y2'
+    ) NOT NULL,
+    qr_area ENUM('DP/VSS', 'RS/VCI', 'CEE/EIE', 'FCI/ICP', 'AC') NOT NULL,
+    qr_image_path VARCHAR(255) NOT NULL, -- Ruta del archivo de imagen QR
+    qr_description VARCHAR(255), -- Descripción opcional
+    qr_active BOOLEAN NOT NULL DEFAULT 1, -- Para desactivar sin eliminar
+    qr_created_by INT NOT NULL,
+    qr_created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    qr_updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (qr_id),
+    CONSTRAINT fk_qr_admin FOREIGN KEY (qr_created_by) 
+        REFERENCES admins(adm_id) 
+        ON DELETE RESTRICT 
+        ON UPDATE CASCADE,
+    CONSTRAINT unique_qr_career_area UNIQUE (qr_career, qr_area),
+    INDEX idx_qr_career (qr_career),
+    INDEX idx_qr_area (qr_area),
+    INDEX idx_qr_active (qr_active)
 );
 
 -- =========================

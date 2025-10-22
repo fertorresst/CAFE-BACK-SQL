@@ -56,6 +56,14 @@
       page-break-after: avoid;
       break-after: avoid;
     }
+    .table-career {
+      margin-bottom: 10px;
+      page-break-inside: avoid;
+      break-inside: avoid;
+      page-break-after: avoid;
+      break-after: avoid;
+      font-size: 10px;
+    }
     .table-student { 
       margin-right: auto; 
       margin-bottom: 10px;
@@ -146,7 +154,7 @@
       padding: 4px;
     }
 
-    /* Contenedor para evitar saltos entre título, tabla y subtítulo */
+    /* Contenedor para evitar saltos entre título, tablas y subtítulo */
     .header-section {
       page-break-inside: avoid;
       break-inside: avoid;
@@ -174,25 +182,23 @@
       </tr>
     </table>
 
+    <table class="table-career">
+      <tr>
+        <th>SEDE</th>
+        <th>PROGRAMA ACADÉMICO</th>
+      </tr>
+      <tr>
+        <td>{{sede}}</td>
+        <td>{{careerFullName}}</td>
+      </tr>
+    </table>
+
     <h2 class="subtitle text-center">LISTADO DE ESTUDIANTES</h2>
   </div>
 
   {{#each students}}
   <div class="student">
     <div class="student-name">{{use_nua}} - {{use_name}} {{use_last_name}} {{use_second_last_name}}</div>
-
-    <table class="table-student">
-      <tr>
-        <td>
-          <strong>SEDE:</strong>
-          <span>{{use_sede}}</span>
-        </td>
-        <td>
-          <strong>PROGRAMA ACADÉMICO:</strong>
-          <span>{{career_full_name}}</span>
-        </td>
-      </tr>
-    </table>
 
     {{#each activities}}
     <div class="activity">
@@ -226,7 +232,7 @@
             <span>{{formatDate act_date_start}}</span>
           </td>
           <td>
-            <strong>FECHA DE FIN:</strong>
+            <strong>FECHA DE FIN:</strong> 
             <span>{{formatDate act_date_end}}</span>
           </td>
           <td>

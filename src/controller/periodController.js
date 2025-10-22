@@ -350,6 +350,37 @@ const downloadCareerReport = async (req, res) => {
   }
 }
 
+/**
+ * Obtiene las carreras que tienen al menos una actividad en un periodo específico filtrado por sede.
+ * @route GET /periods/get-careers-with-activities/:periodId?sede=SEDE
+ */
+const getCareersWithActivities = async (req, res) => {
+  try {
+    const { periodId } = req.params
+    const { sede } = req.query
+
+    if (!periodId || !sede) {
+      return res.status(400).json({
+        success: false,
+        message: 'Periodo y sede son requeridos'
+      })
+    }
+
+    const careers = await Period.getCareersWithActivities(periodId, sede)
+
+    return res.status(200).json({
+      success: true,
+      careers
+    })
+  } catch (error) {
+    console.error('Error en getCareersWithActivities:', error)
+    return res.status(500).json({
+      success: false,
+      message: 'Error al obtener las carreras con actividades'
+    })
+  }
+}
+
 module.exports = {
   getAllPeriods,
   getPeriodInfo,
@@ -362,5 +393,6 @@ module.exports = {
   getPeriodForDownload,
   getFinalReport,
   downloadPeriodReport,
-  downloadCareerReport
+  downloadCareerReport,
+  getCareersWithActivities
 }

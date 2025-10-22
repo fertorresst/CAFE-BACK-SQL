@@ -10,7 +10,9 @@ const {
   setAdminActive,
   deleteAdmin,
   loginAdmin,
-  getAdminById
+  getAdminById,
+  getProfile,
+  updateProfile
 } = require("../controller/adminController")
 
 const { adminAuthMiddleware } = require('../auth/adminAuthMiddleware')
@@ -51,5 +53,9 @@ router.get('/me', adminAuthMiddleware, (req, res) => {
     admin: req.admin
   })
 })
+
+// Rutas de perfil del admin autenticado
+router.get('/profile', adminAuthMiddleware, getProfile);
+router.put('/update-profile', adminAuthMiddleware, updateProfile);
 
 module.exports = router

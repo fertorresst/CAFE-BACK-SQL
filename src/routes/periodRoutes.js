@@ -15,5 +15,6 @@ router.get("/get-period-for-download/:id", adminAuthMiddleware, periodController
 router.get("/final-report/:periodId", adminAuthMiddleware, periodController.getFinalReport)
 router.get('/download-report/:id', adminAuthMiddleware, periodController.downloadPeriodReport)
 router.get('/download-career-report', adminAuthMiddleware, periodController.downloadCareerReport)
+router.get('/get-careers-with-activities/:periodId', adminAuthMiddleware, periodController.getCareersWithActivities)
 
 module.exports = router
