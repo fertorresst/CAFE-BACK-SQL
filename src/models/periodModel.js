@@ -357,6 +357,15 @@ class Period extends IPeriod {
         AC: 0,
         total: 0
       }
+
+      const areaMap = {
+        'DP/VSS': 'DP',
+        'RS/VCI': 'RS',
+        'CEE/EIE': 'CEE',
+        'FCI/ICP': 'FCI',
+        AC: 'AC'
+      }
+
       const activitiesQuery = `
         SELECT act_area, COUNT(*) as count 
         FROM activities 
@@ -366,8 +375,8 @@ class Period extends IPeriod {
       const activitiesResult = await db.query(activitiesQuery, [periodId])
       if (activitiesResult && activitiesResult.length > 0) {
         activitiesResult.forEach(row => {
-          const area = row.act_area
-          const count = Number(row.count)
+          const area = areaMap[row.act_area]
+          const count = Number(row.count) || 0
           if (area in areaCounts) {
             areaCounts[area] += count
             areaCounts.total += count
