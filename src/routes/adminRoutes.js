@@ -43,7 +43,7 @@ router.post('/login', loginAdmin)
 
 router.post('/logout', (req, res) => {
   console.log('CERRANDO SESIÓN ADMIN')
-  res.clearCookie('admin_token')
+  res.clearCookie('admin_token', { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax' })
   res.json({ success: true, message: 'SESIÓN CERRADA' })
 })
 

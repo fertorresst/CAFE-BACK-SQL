@@ -268,17 +268,17 @@ const getMyQRCodes = async (req, res) => {
  */
 const getQRCodeByCareerAndArea = async (req, res) => {
   try {
-    const { career, area } = req.query
+    const { area } = req.query
 
-    // Validar parámetros requeridos
-    if (!career || !area) {
+    if (!area) {
       return res.status(400).json({
         success: false,
-        message: 'CARRERA Y ÁREA SON REQUERIDOS'
+        message: 'ÁREA ES REQUERIDA'
       })
     }
 
-    const qrCode = await QRCode.getQRCodeByCareerAndArea(career, area)
+    const user = await User.getUserById(req.user.id)
+    const qrCode = await QRCode.getQRCodeByCareerAndArea(user.career, area)
 
     res.status(200).json({
       success: true,

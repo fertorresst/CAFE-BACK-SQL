@@ -85,6 +85,13 @@ class Activities extends IActivities {
       }
     }
 
+    // Validar que el periodo exista y esté activo antes de aceptar una actividad del estudiante.
+    const [period] = await db.query('SELECT per_status FROM periods WHERE per_id = ?', [data.periodId])
+    if (!period) throw new Error('EL PERIODO INDICADO NO EXISTE')
+    if (period.per_status !== 'active') {
+      throw new Error('NO SE PUEDEN REGISTRAR ACTIVIDADES EN UN PERIODO INACTIVO')
+    }
+
     // Insertar actividad (agrega act_last_admin_id si está presente)
     const insertQuery = `
       INSERT INTO activities (
@@ -555,7 +562,12 @@ class Activities extends IActivities {
    * @returns {Promise<Object[]>}
    */
   static async getActivityRaw(activityId) {
-    const query = 'SELECT * FROM activities WHERE act_id = ?'
+    const query = `
+      SELECT a.*, p.per_status
+      FROM activities a
+      INNER JOIN periods p ON p.per_id = a.act_period_id
+      WHERE a.act_id = ?
+    `
     return db.query(query, [activityId])
   }
 

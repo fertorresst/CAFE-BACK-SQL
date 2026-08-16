@@ -7,6 +7,9 @@ const jwt = require('jsonwebtoken')
  */
 const getAllUsers = async (req, res) => {
   try {
+    if (!['superadmin', 'admin'].includes(req.adminRole)) {
+      return res.status(403).json({ success: false, message: 'NO TIENES PERMISOS PARA CONSULTAR USUARIOS' })
+    }
     const users = await User.getAllUsers()
     const teachers = users.filter(u => u.isTeacher)
     const students = users.filter(u => !u.isTeacher)
@@ -54,8 +57,11 @@ const createUser = async (req, res) => {
 const updateUser = async (req, res) => {
   try {
     const { id } = req.params
+    if (Number(id) !== Number(req.user.id)) {
+      return res.status(403).json({ success: false, message: 'NO PUEDES MODIFICAR OTRO USUARIO' })
+    }
     const data = req.body
-    const updated = await User.updateUser(id, data)
+    const updated = await User.updateUser(req.user.id, data)
     if (updated) {
       res.status(200).json({
         success: true,
@@ -83,7 +89,13 @@ const updateUserPassword = async (req, res) => {
   try {
     const { id } = req.params
     const { newPassword } = req.body
-    const updated = await User.updatePassword(id, newPassword)
+
+    if (req.user && Number(id) !== Number(req.user.id)) {
+      return res.status(403).json({ success: false, message: 'NO PUEDES CAMBIAR LA CONTRASEÑA DE OTRO USUARIO' })
+    }
+
+    const targetId = req.user ? req.user.id : id
+    const updated = await User.updatePassword(targetId, newPassword)
     if (updated) {
       res.status(200).json({
         success: true,
@@ -138,7 +150,7 @@ const loginUser = async (req, res) => {
     )
     res.cookie('user_token', token, {
       httpOnly: true,
-      secure: false,
+      secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       maxAge: 24 * 60 * 60 * 1000
     })
@@ -162,7 +174,10 @@ const loginUser = async (req, res) => {
 const getUserById = async (req, res) => {
   try {
     const { id } = req.params
-    const user = await User.getUserById(Number(id))
+    if (Number(id) !== Number(req.user.id)) {
+      return res.status(403).json({ success: false, message: 'NO PUEDES CONSULTAR OTRO USUARIO' })
+    }
+    const user = await User.getUserById(req.user.id)
     res.status(200).json({
       success: true,
       user

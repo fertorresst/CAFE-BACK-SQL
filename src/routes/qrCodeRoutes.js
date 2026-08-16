@@ -34,11 +34,15 @@ const storage = multer.diskStorage({
   },
   filename: function (req, file, cb) {
     const { career, area } = req.body
-    // Nombre de archivo: CARRERA_AREA_UUID.extension
-    const areaClean = area ? area.replace(/\//g, '-') : 'UNKNOWN'
+    const safeCareer = (career || 'UNKNOWN').replace(/[^a-zA-Z0-9_-]/g, '-')
+    const safeArea = (area || 'UNKNOWN').replace(/[^a-zA-Z0-9_-]/g, '-')
     const uniqueId = uuidv4().substring(0, 8)
-    const ext = path.extname(file.originalname)
-    cb(null, `${career || 'UNKNOWN'}_${areaClean}_${uniqueId}${ext}`)
+    const extensionByMime = {
+      'image/jpeg': '.jpg',
+      'image/png': '.png'
+    }
+    const ext = extensionByMime[file.mimetype] || '.img'
+    cb(null, `${safeCareer}_${safeArea}_${uniqueId}${ext}`)
   }
 })
 

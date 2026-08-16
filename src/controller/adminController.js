@@ -178,8 +178,7 @@ const deleteAdmin = async (req, res) => {
     }
     const { id } = req.params
     // El id del admin actual debe venir en el body (por seguridad)
-    const { currentAdminId } = req.body
-    await Admin.deleteAdmin(Number(id), Number(currentAdminId))
+    await Admin.deleteAdmin(Number(id), Number(req.adminId))
     res.status(200).json({
       success: true,
       message: 'ADMINISTRADOR ELIMINADO EXITOSAMENTE.'
@@ -199,6 +198,9 @@ const deleteAdmin = async (req, res) => {
 const getAdminById = async (req, res) => {
   try {
     const { id } = req.params
+    if (req.adminRole !== 'superadmin' && Number(id) !== Number(req.adminId)) {
+      return res.status(403).json({ success: false, message: 'NO TIENES PERMISOS PARA CONSULTAR ESTE ADMINISTRADOR' })
+    }
     const admin = await Admin.getAdminById(Number(id))
     res.status(200).json({
       success: true,
@@ -227,7 +229,7 @@ const loginAdmin = async (req, res) => {
     )
     res.cookie('admin_token', token, {
       httpOnly: true,
-      secure: false,
+      secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       maxAge: 24 * 60 * 60 * 1000
     })

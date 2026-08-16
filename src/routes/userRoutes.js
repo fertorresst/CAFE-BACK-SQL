@@ -47,7 +47,7 @@ router.post("/login", loginUser)
 // Logout usuario
 router.post('/logout', (req, res) => {
   console.log('CERRANDO SESIÓN USUARIO')
-  res.clearCookie('user_token')
+  res.clearCookie('user_token', { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax' })
   res.json({ success: true, message: 'SESIÓN DE USUARIO CERRADA' })
 })
 
