@@ -98,27 +98,41 @@ class User extends IUser {
       "password",
       "sede",
     ]
+
     for (const field of requiredFields) {
-      if (!data[field]) throw new Error(`EL CAMPO '${field}' ES OBLIGATORIO`)
+      if (!data[field]) {
+        throw new Error(`EL CAMPO '${field}' ES OBLIGATORIO`)
+      }
     }
+
+    // Normalizar correo electrónico
+    const normalizedEmail = data.email.trim().toLowerCase()
 
     // Validar unicidad de NUA, email y teléfono
     const uniqueQuery = `
       SELECT use_id FROM users WHERE use_nua = ? OR use_email = ?
     `
-    const existing = await db.query(uniqueQuery, [data.nua, data.email])
+
+    const existing = await db.query(uniqueQuery, [
+      data.nua,
+      normalizedEmail,
+    ])
+
     if (existing.length > 0) {
       throw new Error("EL NUA O CORREO YA ESTÁ REGISTRADO")
     }
 
     // Validar formato de NUA
     if (isNaN(data.nua) || data.nua.toString().length < 6) {
-      throw new Error("EL NUA DEBE SER UN NÚMERO DE AL MENOS 6 DÍGITOS")
+      throw new Error(
+        "EL NUA DEBE SER UN NÚMERO DE AL MENOS 6 DÍGITOS"
+      )
     }
 
     // Validar formato de email (dominio ugto.mx)
-    const emailRegex = /.+@ugto\.mx$/
-    if (!emailRegex.test(data.email)) {
+    const emailRegex = /^[^\s@]+@ugto\.mx$/
+
+    if (!emailRegex.test(normalizedEmail)) {
       throw new Error(
         "EL CORREO ELECTRÓNICO DEBE SER INSTITUCIONAL (@ugto.mx)"
       )
@@ -126,7 +140,9 @@ class User extends IUser {
 
     // Validar longitud del teléfono
     if (data.phone.length < 10) {
-      throw new Error("EL TELÉFONO DEBE TENER 10 DÍGITOS")
+      throw new Error(
+        "EL TELÉFONO DEBE TENER 10 DÍGITOS"
+      )
     }
 
     // Validar carrera
@@ -144,18 +160,24 @@ class User extends IUser {
       "IS75LI0801", // LICENCIATURA EN INGENIERÍA DE DATOS E INTELIGENCIA ARTIFICIAL
       "IS75LI08Y2", // LICENCIATURA EN ENSEÑANZA DEL INGLÉS
     ]
+
     if (!validCareers.includes(data.career)) {
       throw new Error(`CARRERA NO VALIDA.`)
     }
 
     // Validar sede
     const validSedes = ["SALAMANCA", "YURIRIA"]
+
     if (!validSedes.includes(data.sede.toUpperCase())) {
-      throw new Error("LA SEDE DEBE SER SALAMANCA O YURIRIA")
+      throw new Error(
+        "LA SEDE DEBE SER SALAMANCA O YURIRIA"
+      )
     }
 
     // Validar longitud y fortaleza de la contraseña
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/
+    const passwordRegex =
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/
+
     if (!passwordRegex.test(data.password)) {
       throw new Error(
         "LA CONTRASEÑA DEBE TENER AL MENOS 8 CARACTERES, UNA MAYÚSCULA, UNA MINÚSCULA, UN NÚMERO Y UN CARÁCTER ESPECIAL"
@@ -163,7 +185,10 @@ class User extends IUser {
     }
 
     // Encriptar la contraseña antes de guardar
-    const hashedPassword = await bcrypt.hash(data.password, 10)
+    const hashedPassword = await bcrypt.hash(
+      data.password,
+      10
+    )
 
     // Insertar nuevo usuario (agrega use_profile_picture si está presente)
     const insertQuery = `
@@ -173,6 +198,7 @@ class User extends IUser {
         use_sede, use_profile_picture
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `
+
     const result = await db.query(insertQuery, [
       data.nua,
       data.name,
@@ -180,11 +206,12 @@ class User extends IUser {
       data.secondLastName || null,
       data.career,
       data.phone,
-      data.email,
+      normalizedEmail,
       hashedPassword,
       data.sede.toUpperCase(),
       data.profilePicture || null,
     ])
+
     return result.insertId
   }
 
@@ -196,7 +223,11 @@ class User extends IUser {
    */
   static async updateUser(id, data) {
     // Validar existencia de ID
-    if (!id) throw new Error("ID DEL USUARIO ES REQUERIDO")
+    if (!id) {
+      throw new Error(
+        "ID DEL USUARIO ES REQUERIDO"
+      )
+    }
 
     // Validar campos requeridos
     const requiredFields = [
@@ -207,23 +238,41 @@ class User extends IUser {
       "email",
       "sede",
     ]
+
     for (const field of requiredFields) {
-      if (!data[field]) throw new Error(`EL CAMPO '${field}' ES OBLIGATORIO`)
+      if (!data[field]) {
+        throw new Error(
+          `EL CAMPO '${field}' ES OBLIGATORIO`
+        )
+      }
     }
+
+    // Normalizar correo electrónico
+    const normalizedEmail = data.email
+      .trim()
+      .toLowerCase()
 
     // Validar unicidad de email (excluyendo el propio usuario)
     const uniqueQuery = `
       SELECT use_id FROM users 
       WHERE use_email = ? AND use_id <> ?
     `
-    const existing = await db.query(uniqueQuery, [data.email, id])
+
+    const existing = await db.query(
+      uniqueQuery,
+      [normalizedEmail, id]
+    )
+
     if (existing.length > 0) {
-      throw new Error("EL CORREO ELECTRÓNICO YA ESTÁ REGISTRADO")
+      throw new Error(
+        "EL CORREO ELECTRÓNICO YA ESTÁ REGISTRADO"
+      )
     }
 
     // Validar formato de email
-    const emailRegex = /.+@ugto\.mx$/
-    if (!emailRegex.test(data.email)) {
+    const emailRegex = /^[^\s@]+@ugto\.mx$/
+
+    if (!emailRegex.test(normalizedEmail)) {
       throw new Error(
         "EL CORREO ELECTRÓNICO DEBE SER INSTITUCIONAL (@ugto.mx)"
       )
@@ -231,7 +280,9 @@ class User extends IUser {
 
     // Validar longitud del teléfono
     if (data.phone.length < 10) {
-      throw new Error("EL TELÉFONO DEBE TENER 10 DÍGITOS")
+      throw new Error(
+        "EL TELÉFONO DEBE TENER 10 DÍGITOS"
+      )
     }
 
     // Validar carrera
@@ -249,14 +300,25 @@ class User extends IUser {
       "IS75LI0801",
       "IS75LI08Y2",
     ]
+
     if (!validCareers.includes(data.career)) {
       throw new Error(`CARRERA NO VALIDA.`)
     }
 
     // Validar sede
-    const validSedes = ["SALAMANCA", "YURIRIA"]
-    if (!validSedes.includes(data.sede.toUpperCase())) {
-      throw new Error("LA SEDE DEBE SER SALAMANCA O YURIRIA")
+    const validSedes = [
+      "SALAMANCA",
+      "YURIRIA",
+    ]
+
+    if (
+      !validSedes.includes(
+        data.sede.toUpperCase()
+      )
+    ) {
+      throw new Error(
+        "LA SEDE DEBE SER SALAMANCA O YURIRIA"
+      )
     }
 
     // Actualizar datos (incluye use_profile_picture)
@@ -272,17 +334,19 @@ class User extends IUser {
         use_profile_picture = ?
       WHERE use_id = ?
     `
+
     const result = await db.query(updateQuery, [
       data.name,
       data.lastName,
       data.secondLastName || null,
       data.career,
       data.phone,
-      data.email,
+      normalizedEmail,
       data.sede.toUpperCase(),
       data.profilePicture || null,
       id,
     ])
+
     return result.affectedRows > 0
   }
 
@@ -294,50 +358,94 @@ class User extends IUser {
    * @returns {Promise<boolean>} true si la actualización fue exitosa.
    */
   static async updateUserProfile(id, data) {
-    if (!id) throw new Error("ID DEL USUARIO ES REQUERIDO");
+    if (!id) {
+      throw new Error(
+        "ID DEL USUARIO ES REQUERIDO"
+      )
+    }
 
     // Validar campos requeridos
-    const requiredFields = ["name", "lastName", "email", "phone", "nua", "career", "sede"];
+    const requiredFields = [
+      "name",
+      "lastName",
+      "email",
+      "phone",
+      "nua",
+      "career",
+      "sede",
+    ]
+
     for (const field of requiredFields) {
-      if (!data[field]) throw new Error(`EL CAMPO '${field}' ES OBLIGATORIO`);
+      if (!data[field]) {
+        throw new Error(
+          `EL CAMPO '${field}' ES OBLIGATORIO`
+        )
+      }
     }
+
+    // Normalizar correo electrónico
+    const normalizedEmail = data.email
+      .trim()
+      .toLowerCase()
 
     // Validar unicidad de NUA (excluyendo el propio usuario)
     const nuaQuery = `
       SELECT use_id FROM users 
       WHERE use_nua = ? AND use_id <> ?
-    `;
-    const existingNua = await db.query(nuaQuery, [data.nua, id]);
+    `
+
+    const existingNua = await db.query(
+      nuaQuery,
+      [data.nua, id]
+    )
+
     if (existingNua.length > 0) {
-      throw new Error("EL NUA YA ESTÁ REGISTRADO");
+      throw new Error(
+        "EL NUA YA ESTÁ REGISTRADO"
+      )
     }
 
     // Validar unicidad de email (excluyendo el propio usuario)
     const emailQuery = `
       SELECT use_id FROM users 
       WHERE use_email = ? AND use_id <> ?
-    `;
-    const existingEmail = await db.query(emailQuery, [data.email, id]);
+    `
+
+    const existingEmail = await db.query(
+      emailQuery,
+      [normalizedEmail, id]
+    )
+
     if (existingEmail.length > 0) {
-      throw new Error("EL CORREO ELECTRÓNICO YA ESTÁ REGISTRADO");
+      throw new Error(
+        "EL CORREO ELECTRÓNICO YA ESTÁ REGISTRADO"
+      )
     }
 
     // Validar formato de NUA
-    if (isNaN(data.nua) || data.nua.toString().length < 6) {
-      throw new Error("EL NUA DEBE TENER AL MENOS 6 DÍGITOS");
+    if (
+      isNaN(data.nua) ||
+      data.nua.toString().length < 6
+    ) {
+      throw new Error(
+        "EL NUA DEBE TENER AL MENOS 6 DÍGITOS"
+      )
     }
 
     // Validar formato de email
-    const emailRegex = /.+@ugto\.mx$/;
-    if (!emailRegex.test(data.email)) {
+    const emailRegex = /^[^\s@]+@ugto\.mx$/
+
+    if (!emailRegex.test(normalizedEmail)) {
       throw new Error(
         "EL CORREO ELECTRÓNICO DEBE SER INSTITUCIONAL (@ugto.mx)"
-      );
+      )
     }
 
     // Validar longitud del teléfono
     if (!/^\d{10}$/.test(data.phone)) {
-      throw new Error("EL TELÉFONO DEBE TENER 10 DÍGITOS");
+      throw new Error(
+        "EL TELÉFONO DEBE TENER 10 DÍGITOS"
+      )
     }
 
     // Validar carrera
@@ -354,15 +462,28 @@ class User extends IUser {
       "IS75LI0702",
       "IS75LI0801",
       "IS75LI08Y2",
-    ];
+    ]
+
     if (!validCareers.includes(data.career)) {
-      throw new Error("LA CARRERA SELECCIONADA NO ES VÁLIDA");
+      throw new Error(
+        "LA CARRERA SELECCIONADA NO ES VÁLIDA"
+      )
     }
 
     // Validar sede
-    const validSedes = ["SALAMANCA", "YURIRIA"];
-    if (!validSedes.includes(data.sede.toUpperCase())) {
-      throw new Error("LA SEDE DEBE SER 'SALAMANCA' O 'YURIRIA'");
+    const validSedes = [
+      "SALAMANCA",
+      "YURIRIA",
+    ]
+
+    if (
+      !validSedes.includes(
+        data.sede.toUpperCase()
+      )
+    ) {
+      throw new Error(
+        "LA SEDE DEBE SER 'SALAMANCA' O 'YURIRIA'"
+      )
     }
 
     // Actualizar todos los campos de perfil (incluye NUA, carrera, sede)
@@ -377,19 +498,24 @@ class User extends IUser {
         use_career = ?,
         use_sede = ?
       WHERE use_id = ?
-    `;
-    const result = await db.query(updateQuery, [
-      data.nua,
-      data.name,
-      data.lastName,
-      data.secondLastName || null,
-      data.phone,
-      data.email,
-      data.career,
-      data.sede.toUpperCase(),
-      id,
-    ]);
-    return result.affectedRows > 0;
+    `
+
+    const result = await db.query(
+      updateQuery,
+      [
+        data.nua,
+        data.name,
+        data.lastName,
+        data.secondLastName || null,
+        data.phone,
+        normalizedEmail,
+        data.career,
+        data.sede.toUpperCase(),
+        id,
+      ]
+    )
+
+    return result.affectedRows > 0
   }
 
   /**
@@ -398,12 +524,20 @@ class User extends IUser {
    * @returns {Promise<boolean>}
    */
   static async deleteUser(id) {
-    if (!id) throw new Error("ID DEL USUARIO ES REQUERIDO")
+    if (!id) {
+      throw new Error(
+        "ID DEL USUARIO ES REQUERIDO"
+      )
+    }
 
     // Verificar si el usuario tiene actividades registradas
     const checkQuery =
       "SELECT COUNT(*) as count FROM activities WHERE act_user_id = ?"
-    const [result] = await db.query(checkQuery, [id])
+
+    const [result] = await db.query(
+      checkQuery,
+      [id]
+    )
 
     if (result.count > 0) {
       throw new Error(
@@ -411,11 +545,20 @@ class User extends IUser {
       )
     }
 
-    const deleteQuery = "DELETE FROM users WHERE use_id = ?"
-    const deleteResult = await db.query(deleteQuery, [id])
+    const deleteQuery =
+      "DELETE FROM users WHERE use_id = ?"
 
-    if (deleteResult.affectedRows === 0)
-      throw new Error("NO SE ENCONTRÓ EL USUARIO")
+    const deleteResult = await db.query(
+      deleteQuery,
+      [id]
+    )
+
+    if (deleteResult.affectedRows === 0) {
+      throw new Error(
+        "NO SE ENCONTRÓ EL USUARIO"
+      )
+    }
+
     return true
   }
 
@@ -426,7 +569,16 @@ class User extends IUser {
    * @returns {Promise<Object>} Datos del usuario.
    */
   static async login(email, password) {
-    if (!email || !password) throw new Error("CORREO Y CONTRASEÑA REQUERIDOS")
+    if (!email || !password) {
+      throw new Error(
+        "CORREO Y CONTRASEÑA REQUERIDOS"
+      )
+    }
+
+    // Normalizar correo electrónico
+    const normalizedEmail = email
+      .trim()
+      .toLowerCase()
 
     const query = `
       SELECT 
@@ -437,11 +589,27 @@ class User extends IUser {
       WHERE use_email = ?
     `
 
-    const [user] = await db.query(query, [email])
-    if (!user) throw new Error("CREDENCIALES INVÁLIDAS")
+    const [user] = await db.query(
+      query,
+      [normalizedEmail]
+    )
 
-    const valid = await bcrypt.compare(password, user.use_password)
-    if (!valid) throw new Error("CREDENCIALES INVÁLIDAS")
+    if (!user) {
+      throw new Error(
+        "CREDENCIALES INVÁLIDAS"
+      )
+    }
+
+    const valid = await bcrypt.compare(
+      password,
+      user.use_password
+    )
+
+    if (!valid) {
+      throw new Error(
+        "CREDENCIALES INVÁLIDAS"
+      )
+    }
 
     // Retorna solo los datos necesarios
     return {
@@ -449,14 +617,16 @@ class User extends IUser {
       nua: user.use_nua,
       name: user.use_name,
       lastName: user.use_last_name,
-      secondLastName: user.use_second_last_name,
+      secondLastName:
+        user.use_second_last_name,
       fullName: `${user.use_name} ${user.use_last_name} ${
         user.use_second_last_name || ""
       }`.trim(),
       career: user.use_career,
       email: user.use_email,
       sede: user.use_sede,
-      profilePicture: user.use_profile_picture || null,
+      profilePicture:
+        user.use_profile_picture || null,
     }
   }
 
@@ -466,7 +636,12 @@ class User extends IUser {
    * @returns {Promise<Object>} Datos del usuario.
    */
   static async getUserById(id) {
-    if (!id) throw new Error("ID DEL USUARIO ES REQUERIDO")
+    if (!id) {
+      throw new Error(
+        "ID DEL USUARIO ES REQUERIDO"
+      )
+    }
+
     const query = `
       SELECT 
         use_id, use_nua, use_name, use_last_name, use_second_last_name,
@@ -474,24 +649,44 @@ class User extends IUser {
       FROM users
       WHERE use_id = ?
     `
-    const [user] = await db.query(query, [id])
-    if (!user) throw new Error("NO SE ENCONTRÓ EL USUARIO")
+
+    const [user] = await db.query(
+      query,
+      [id]
+    )
+
+    if (!user) {
+      throw new Error(
+        "NO SE ENCONTRÓ EL USUARIO"
+      )
+    }
+
     return {
       id: user.use_id,
       nua: user.use_nua,
       name: user.use_name,
       lastName: user.use_last_name,
-      secondLastName: user.use_second_last_name,
+      secondLastName:
+        user.use_second_last_name,
       career: user.use_career,
       phone: user.use_phone,
       email: user.use_email,
       sede: user.use_sede,
-      profilePicture: user.use_profile_picture || null,
+      profilePicture:
+        user.use_profile_picture || null,
       createdAt: user.use_created_at
-        ? new Date(user.use_created_at).toISOString().split("T")[0]
+        ? new Date(
+            user.use_created_at
+          )
+            .toISOString()
+            .split("T")[0]
         : null,
       updatedAt: user.use_updated_at
-        ? new Date(user.use_updated_at).toISOString().split("T")[0]
+        ? new Date(
+            user.use_updated_at
+          )
+            .toISOString()
+            .split("T")[0]
         : null,
     }
   }
@@ -511,9 +706,15 @@ class User extends IUser {
       FROM users
       ORDER BY use_nua
     `
-    const users = await db.query(usersQuery)
+
+    const users = await db.query(
+      usersQuery
+    )
+
     if (!users || users.length === 0) {
-      throw new Error("NO HAY USUARIOS REGISTRADOS")
+      throw new Error(
+        "NO HAY USUARIOS REGISTRADOS"
+      )
     }
 
     // 2. Obtener todas las actividades junto con el nombre del periodo
@@ -528,56 +729,130 @@ class User extends IUser {
       LEFT JOIN periods p ON a.act_period_id = p.per_id
       ORDER BY a.act_id DESC
     `
-    const activities = await db.query(activitiesQuery)
+
+    const activities = await db.query(
+      activitiesQuery
+    )
 
     // 4. Agrupar actividades por usuario
     const activitiesByUser = {}
+
     for (const act of activities) {
-      if (!act.act_user_id) continue
-      if (!activitiesByUser[act.act_user_id]) activitiesByUser[act.act_user_id] = []
+      if (!act.act_user_id) {
+        continue
+      }
+
+      if (
+        !activitiesByUser[
+          act.act_user_id
+        ]
+      ) {
+        activitiesByUser[
+          act.act_user_id
+        ] = []
+      }
+
       let evidenceLinks = []
+
       if (act.act_evidence) {
         try {
-          const evidence = JSON.parse(act.act_evidence.toString())
-          if (typeof evidence === 'object') {
-            evidenceLinks = Object.values(evidence).flat().filter(item => item)
+          const evidence = JSON.parse(
+            act.act_evidence.toString()
+          )
+
+          if (
+            typeof evidence ===
+            "object"
+          ) {
+            evidenceLinks =
+              Object.values(evidence)
+                .flat()
+                .filter(
+                  (item) => item
+                )
           }
         } catch (error) {
-          console.error('Error al parsear JSON de evidencias:', error)
+          console.error(
+            "Error al parsear JSON de evidencias:",
+            error
+          )
         }
       }
+
       // Si la actividad está en 'contacted', consulta el con_id en la tabla contact
       let contactId = null
-      if (act.act_status === 'contacted') {
+
+      if (
+        act.act_status ===
+        "contacted"
+      ) {
         const contactQuery = `
           SELECT con_id FROM contact
           WHERE (con_user_id = ? AND con_activity_id = ? AND con_period_id = ?)
           LIMIT 1
         `
-        const [contact] = await db.query(contactQuery, [act.act_user_id, act.act_id, act.act_period_id])
-        contactId = contact ? contact.con_id : null
+
+        const [contact] =
+          await db.query(
+            contactQuery,
+            [
+              act.act_user_id,
+              act.act_id,
+              act.act_period_id,
+            ]
+          )
+
+        contactId = contact
+          ? contact.con_id
+          : null
       }
-      activitiesByUser[act.act_user_id].push({
+
+      activitiesByUser[
+        act.act_user_id
+      ].push({
         id: act.act_id,
         name: act.act_name,
-        dateStart: new Date(act.act_date_start).toISOString().split('T')[0],
-        dateEnd: new Date(act.act_date_end).toISOString().split('T')[0],
+        dateStart: new Date(
+          act.act_date_start
+        )
+          .toISOString()
+          .split("T")[0],
+        dateEnd: new Date(
+          act.act_date_end
+        )
+          .toISOString()
+          .split("T")[0],
         hours: act.act_hours,
-        institution: act.act_institution,
+        institution:
+          act.act_institution,
         evidenceLinks,
         area: act.act_area,
         status: act.act_status,
-        observations: act.act_observations,
-        lastAdminId: act.act_last_admin_id,
-        periodId: act.act_period_id,
-        periodName: act.per_name || '',
+        observations:
+          act.act_observations,
+        lastAdminId:
+          act.act_last_admin_id,
+        periodId:
+          act.act_period_id,
+        periodName:
+          act.per_name || "",
         contactId, // Ahora sí es el con_id real de la tabla contact
-        createdAt: act.act_created_at
-          ? new Date(act.act_created_at).toLocaleString().split(',')[0]
-          : null,
-        updatedAt: act.act_updated_at
-          ? new Date(act.act_updated_at).toLocaleString().split(',')[0]
-          : null,
+        createdAt:
+          act.act_created_at
+            ? new Date(
+                act.act_created_at
+              )
+                .toLocaleString()
+                .split(",")[0]
+            : null,
+        updatedAt:
+          act.act_updated_at
+            ? new Date(
+                act.act_updated_at
+              )
+                .toLocaleString()
+                .split(",")[0]
+            : null,
       })
     }
 
@@ -585,20 +860,167 @@ class User extends IUser {
     return users.map((user) => ({
       id: user.use_id,
       nua: user.use_nua,
-      fullName: user.use_name + ' ' + user.use_last_name + ' ' + (user.use_second_last_name || ''),
+      fullName:
+        user.use_name +
+        " " +
+        user.use_last_name +
+        " " +
+        (
+          user.use_second_last_name ||
+          ""
+        ),
       career: user.use_career,
       phone: user.use_phone,
       email: user.use_email,
       sede: user.use_sede,
-      profilePicture: user.use_profile_picture || null,
-      createdAt: user.use_created_at
-        ? new Date(user.use_created_at).toISOString().split("T")[0]
-        : null,
-      updatedAt: user.use_updated_at
-        ? new Date(user.use_updated_at).toISOString().split("T")[0]
-        : null,
-      activities: activitiesByUser[user.use_id] || [],
+      profilePicture:
+        user.use_profile_picture ||
+        null,
+      createdAt:
+        user.use_created_at
+          ? new Date(
+              user.use_created_at
+            )
+              .toISOString()
+              .split("T")[0]
+          : null,
+      updatedAt:
+        user.use_updated_at
+          ? new Date(
+              user.use_updated_at
+            )
+              .toISOString()
+              .split("T")[0]
+          : null,
+      activities:
+        activitiesByUser[
+          user.use_id
+        ] || [],
     }))
+  }
+    /**
+   * Verifica si un correo electrónico ya pertenece a un usuario registrado.
+   * @param {string} email - Correo electrónico normalizado.
+   * @returns {Promise<boolean>} true si el correo ya está registrado.
+   */
+  static async emailExists(email) {
+    const normalizedEmail = email.trim().toLowerCase()
+
+    const query = `
+      SELECT use_id
+      FROM users
+      WHERE use_email = ?
+      LIMIT 1
+    `
+
+    const [user] = await db.query(query, [normalizedEmail])
+
+    return Boolean(user)
+  }
+
+  /**
+   * Guarda o reemplaza un código de verificación para un correo electrónico.
+   * @param {string} email - Correo electrónico institucional.
+   * @param {string} codeHash - Hash del código de verificación.
+   * @param {Date} expiresAt - Fecha de expiración del código.
+   * @returns {Promise<boolean>}
+   */
+  static async saveEmailVerification(email, codeHash, expiresAt) {
+    const normalizedEmail = email.trim().toLowerCase()
+
+    const query = `
+      INSERT INTO email_verifications (
+        ev_email,
+        ev_code_hash,
+        ev_expires_at,
+        ev_attempts
+      )
+      VALUES (?, ?, ?, 0)
+      ON DUPLICATE KEY UPDATE
+        ev_code_hash = VALUES(ev_code_hash),
+        ev_expires_at = VALUES(ev_expires_at),
+        ev_attempts = 0,
+        ev_updated_at = CURRENT_TIMESTAMP
+    `
+
+    await db.query(query, [
+      normalizedEmail,
+      codeHash,
+      expiresAt,
+    ])
+
+    return true
+  }
+
+  /**
+   * Obtiene la verificación pendiente de un correo electrónico.
+   * @param {string} email - Correo electrónico institucional.
+   * @returns {Promise<Object|null>}
+   */
+  static async getEmailVerification(email) {
+    const normalizedEmail = email.trim().toLowerCase()
+
+    const query = `
+      SELECT
+        ev_id,
+        ev_email,
+        ev_code_hash,
+        ev_expires_at,
+        ev_attempts
+      FROM email_verifications
+      WHERE ev_email = ?
+      LIMIT 1
+    `
+
+    const [verification] = await db.query(
+      query,
+      [normalizedEmail]
+    )
+
+    return verification || null
+  }
+
+  /**
+   * Incrementa el número de intentos fallidos de verificación.
+   * @param {string} email - Correo electrónico institucional.
+   * @returns {Promise<boolean>}
+   */
+  static async incrementVerificationAttempts(email) {
+    const normalizedEmail = email.trim().toLowerCase()
+
+    const query = `
+      UPDATE email_verifications
+      SET ev_attempts = ev_attempts + 1
+      WHERE ev_email = ?
+    `
+
+    const result = await db.query(
+      query,
+      [normalizedEmail]
+    )
+
+    return result.affectedRows > 0
+  }
+
+  /**
+   * Elimina una verificación temporal.
+   * @param {string} email - Correo electrónico institucional.
+   * @returns {Promise<boolean>}
+   */
+  static async deleteEmailVerification(email) {
+    const normalizedEmail = email.trim().toLowerCase()
+
+    const query = `
+      DELETE FROM email_verifications
+      WHERE ev_email = ?
+    `
+
+    const result = await db.query(
+      query,
+      [normalizedEmail]
+    )
+
+    return result.affectedRows > 0
   }
 }
 

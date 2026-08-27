@@ -1,4 +1,5 @@
 const express = require("express")
+const rateLimit = require('express-rate-limit')
 const router = express.Router()
 
 const {
@@ -6,6 +7,8 @@ const {
   loginUser,
   getAllUsers,
   createUser,
+  sendVerificationCode,
+  verifyEmailCode,
   updateUserPassword,
   deleteUser,
   getUserById,
@@ -16,12 +19,42 @@ const {
 
 const { userAuthMiddleware } = require('../auth/userAuthMiddleware')
 const { adminAuthMiddleware } = require('../auth/adminAuthMiddleware')
+const registerLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 5, // máximo 5 intentos por IP
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: 'DEMASIADOS INTENTOS DE REGISTRO. INTENTA NUEVAMENTE EN 15 MINUTOS.'
+  }
+})
+
+/*const verificationLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: 'DEMASIADAS SOLICITUDES DE CÓDIGO. INTENTA NUEVAMENTE EN 15 MINUTOS.'
+  }
+}) */ 
 
 // Obtener todos los usuarios
 router.get("/get-all-users", adminAuthMiddleware, getAllUsers)
 
+// Enviar código de verificación al correo institucional
+//router.post("/send-verification-code", verificationLimiter, sendVerificationCode)
+
+// Verificar código enviado al correo institucional
+//router.post("/verify-email-code", verifyEmailCode)
+
 // Crear usuario
-router.post("/create-user", createUser)
+router.post("/create-user", registerLimiter, createUser)
+
+// Crear usuario
+router.post( "/create-user", registerLimiter, createUser )
 
 // Actualizar usuario
 router.put("/update-user/:id", userAuthMiddleware, updateUser)
