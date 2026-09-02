@@ -1,4 +1,4 @@
-const mysql = require('mysql')
+const mysql = require('mysql2')
 const { promisify } = require('util')
 require('dotenv').config() // Carga las variables de entorno desde .env
 
