@@ -45,6 +45,15 @@ const getAllQRCodes = async (req, res) => {
 }
 
 /**
+ * Busca cuáles de las carreras seleccionadas ya tienen
+ * un código QR registrado para un área específica.
+ *
+ * @param {Array<string>} careers - Códigos de las carreras
+ * @param {string} area - Área del código QR
+ * @returns {Promise<Array<string>>} Carreras que ya tienen QR
+ */
+
+/**
  * Crea un nuevo código QR con imagen.
  * Solo superadmin puede crear códigos QR.
  * @route POST /qr-codes/create-qr-code
@@ -52,16 +61,22 @@ const getAllQRCodes = async (req, res) => {
 const createQRCode = async (req, res) => {
   const { adminRole, adminId } = req
 
+  const createdFiles = []
+
   try {
-    // Validar permisos de superadmin
+    // Validar permisos
     if (adminRole !== 'superadmin') {
+      if (req.file) {
+        await fs.unlink(req.file.path).catch(() => {})
+      }
+
       return res.status(403).json({
         success: false,
         message: 'SOLO EL SUPERADMIN PUEDE CREAR CÓDIGOS QR'
       })
     }
 
-    // Validar que se haya subido una imagen
+    // Validar imagen
     if (!req.file) {
       return res.status(400).json({
         success: false,
@@ -69,43 +84,157 @@ const createQRCode = async (req, res) => {
       })
     }
 
-    const { career, area, description } = req.body
+    const {
+      careers: careersJSON,
+      area,
+      description
+    } = req.body
 
-    // Validar campos obligatorios
-    if (!career || !area) {
-      // Eliminar el archivo subido si falta información
+    let careers
+
+    // Convertir las carreras recibidas en JSON
+    try {
+      careers = JSON.parse(careersJSON)
+    } catch (error) {
       await fs.unlink(req.file.path).catch(() => {})
+
       return res.status(400).json({
         success: false,
-        message: 'CARRERA Y ÁREA SON REQUERIDOS'
+        message: 'LAS CARRERAS SELECCIONADAS NO SON VÁLIDAS'
       })
     }
 
-    // Construir ruta relativa para guardar en la base de datos
-    // En lugar de guardar la ruta completa, guardamos solo la ruta relativa
-    const relativePath = `/qr-codes/${req.file.filename}`
+    // Validar datos obligatorios
+    if (
+      !Array.isArray(careers) ||
+      careers.length === 0 ||
+      !area
+    ) {
+      await fs.unlink(req.file.path).catch(() => {})
 
-    const data = {
-      career,
-      area,
-      imagePath: relativePath,
-      description,
-      createdBy: adminId
+      return res.status(400).json({
+        success: false,
+        message: 'DEBES SELECCIONAR AL MENOS UNA CARRERA Y UN ÁREA'
+      })
     }
 
-    const newQRId = await QRCode.createQRCode(data)
+    // Limpiar datos y eliminar posibles duplicados
+    careers = [
+      ...new Set(
+        careers
+          .filter(career => typeof career === 'string')
+          .map(career => career.trim())
+          .filter(Boolean)
+      )
+    ]
 
-    res.status(201).json({
+    if (careers.length === 0) {
+      await fs.unlink(req.file.path).catch(() => {})
+
+      return res.status(400).json({
+        success: false,
+        message: 'DEBES SELECCIONAR AL MENOS UNA CARRERA'
+      })
+    }
+
+    /*
+     * IMPORTANTE:
+     * Antes de crear cualquier archivo o registro,
+     * comprobamos todas las carreras seleccionadas.
+     */
+    const existingCareers =
+      await QRCode.getExistingCareersForArea(careers, area)
+
+    if (existingCareers.length > 0) {
+      // Multer ya guardó temporalmente la imagen,
+      // así que la eliminamos porque no se creará nada.
+      await fs.unlink(req.file.path).catch(() => {})
+
+      return res.status(409).json({
+        success: false,
+        message:
+          'YA EXISTE UN CÓDIGO QR PARA UNA O MÁS DE LAS CARRERAS SELECCIONADAS EN ESTA ÁREA',
+        existingCareers
+      })
+    }
+
+    /*
+     * Llegados hasta aquí sabemos que ninguna combinación
+     * carrera + área existe todavía.
+     */
+
+    const uploadDirectory = path.dirname(req.file.path)
+
+    const extension = path
+      .extname(req.file.originalname)
+      .toLowerCase()
+
+    const areaClean = area.replace(/\//g, '-')
+
+    const createdIds = []
+
+    // Crear un archivo y registro independiente por carrera
+    for (const career of careers) {
+      const uniqueSuffix =
+        `${Date.now()}_${Math.random()
+          .toString(36)
+          .substring(2, 10)}`
+
+      const fileName =
+        `${career}_${areaClean}_${uniqueSuffix}${extension}`
+
+      const destinationPath = path.join(
+        uploadDirectory,
+        fileName
+      )
+
+      // Copia física independiente
+      await fs.copyFile(
+        req.file.path,
+        destinationPath
+      )
+
+      createdFiles.push(destinationPath)
+
+      const relativePath = `/qr-codes/${fileName}`
+
+      const data = {
+        career,
+        area,
+        imagePath: relativePath,
+        description,
+        createdBy: adminId
+      }
+
+      const newQRId =
+        await QRCode.createQRCode(data)
+
+      createdIds.push(newQRId)
+    }
+
+    // Borrar archivo temporal original
+    await fs.unlink(req.file.path).catch(() => {})
+
+    return res.status(201).json({
       success: true,
-      id: newQRId,
-      message: 'CÓDIGO QR CREADO CORRECTAMENTE'
+      ids: createdIds,
+      message:
+        createdIds.length === 1
+          ? 'CÓDIGO QR CREADO CORRECTAMENTE'
+          : `${createdIds.length} CÓDIGOS QR CREADOS CORRECTAMENTE`
     })
   } catch (err) {
-    // Si hay error, eliminar el archivo subido
+    // Borrar archivo temporal
     if (req.file) {
       await fs.unlink(req.file.path).catch(() => {})
     }
-    res.status(400).json({
+
+    // Borrar las copias físicas creadas
+    for (const filePath of createdFiles) {
+      await fs.unlink(filePath).catch(() => {})
+    }
+
+    return res.status(400).json({
       success: false,
       message: err.message
     })
