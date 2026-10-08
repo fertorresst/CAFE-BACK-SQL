@@ -51,8 +51,8 @@ const getPeriodInfo = async (req, res) => {
  * @route POST /periods
  */
 const createPeriod = async (req, res) => {
-  const { name, dateStart, dateEnd, exclusive, status, createAdminId } = req.body
-  const { adminRole } = req
+  const { name, dateStart, dateEnd, exclusive, status } = req.body
+  const { adminRole, adminId } = req
   try {
     // Solo superadmin y admin pueden crear periodos
     if (!['superadmin', 'admin'].includes(adminRole)) {
@@ -61,13 +61,13 @@ const createPeriod = async (req, res) => {
         message: 'NO TIENES PERMISOS PARA CREAR PERIODOS'
       })
     }
-    if (!name || !dateStart || !dateEnd || exclusive === undefined || !status || !createAdminId) {
+    if (!name || !dateStart || !dateEnd || exclusive === undefined || !status) {
       return res.status(400).json({
         success: false,
         message: 'FALTAN CAMPOS OBLIGATORIOS PARA CREAR EL PERIODO'
       })
     }
-    const period = await Period.createPeriod(name, dateStart, dateEnd, exclusive, status, createAdminId)
+    const period = await Period.createPeriod(name, dateStart, dateEnd, exclusive, status, adminId)
     res.status(201).json({
       period,
       success: true,
@@ -185,6 +185,7 @@ const updateStatus = async (req, res) => {
  */
 const getAllPeriodActivities = async (req, res) => {
   const { id } = req.params
+  const { adminRole } = req
   try {
     // Solo superadmin y admin pueden descargar reportes de periodos
     if (!['superadmin', 'admin'].includes(adminRole)) {
@@ -276,48 +277,70 @@ const getFinalReport = async (req, res) => {
 const downloadPeriodReport = async (req, res) => {
   try {
     const { id } = req.params
-    const reportPath = await Period.getReportPath(id)
-    
-    if (!reportPath) {
-      // Verificar si el periodo está finalizado
-      const period = await Period.getPeriodInfo(id)
-      if (period.status !== 'ended') {
-        return res.status(400).json({
-          success: false,
-          message: 'EL REPORTE SOLO ESTÁ DISPONIBLE PARA PERIODOS FINALIZADOS'
-        })
-      }
-      
-      // Si el periodo está finalizado pero no tiene reporte, iniciar generación
-      setTimeout(async () => {
-        try {
-          await ReportGenerator.generatePeriodReport(id)
-        } catch (err) {
-          console.error(`Error generando reporte para periodo ${id}:`, err)
-        }
-      }, 100)
-      
-      return res.status(202).json({
-        success: true,
-        message: 'REPORTE EN GENERACIÓN, INTENTE MÁS TARDE',
-        generating: true
-      })
-    }
-    
-    // Enviar archivo para descarga
-    const filePath = path.join(__dirname, '../../uploads', reportPath)
-    if (!fs.existsSync(filePath)) {
+
+    // Obtener información del periodo
+    const period = await Period.getPeriodInfo(id)
+
+    if (!period) {
       return res.status(404).json({
         success: false,
-        message: 'ARCHIVO DE REPORTE NO ENCONTRADO'
+        message: 'PERIODO NO ENCONTRADO'
       })
     }
-    
-    res.download(filePath)
+
+    // El reporte final solo se permite para periodos finalizados
+    if (period.per_status !== 'ended') {
+      return res.status(400).json({
+        success: false,
+        message: 'EL REPORTE SOLO ESTÁ DISPONIBLE PARA PERIODOS FINALIZADOS'
+      })
+    }
+
+    // Buscar la ruta registrada actualmente en la BD
+    let reportPath = await Period.getReportPath(id)
+
+    let filePath = reportPath
+      ? path.join(__dirname, '../../uploads', reportPath)
+      : null
+
+    // Si no existe una ruta o el archivo físico ya no existe,
+    // generar nuevamente el reporte.
+    if (!reportPath || !fs.existsSync(filePath)) {
+      console.log(
+        `Reporte del periodo ${id} inexistente o perdido. Generando nuevamente...`
+      )
+
+      reportPath = await ReportGenerator.generatePeriodReport(id)
+
+      filePath = path.join(
+        __dirname,
+        '../../uploads',
+        reportPath
+      )
+    }
+
+    // Comprobación final
+    if (!fs.existsSync(filePath)) {
+      return res.status(500).json({
+        success: false,
+        message: 'NO FUE POSIBLE GENERAR EL ARCHIVO DEL REPORTE'
+      })
+    }
+
+    // Descargar PDF
+    return res.download(
+      filePath,
+      `reporte-actividades-periodo-${id}.pdf`
+    )
   } catch (err) {
-    res.status(500).json({
+    console.error(
+      'Error al descargar el reporte del periodo:',
+      err
+    )
+
+    return res.status(500).json({
       success: false,
-      message: err.message
+      message: 'ERROR AL GENERAR O DESCARGAR EL REPORTE'
     })
   }
 }
@@ -344,8 +367,7 @@ const downloadCareerReport = async (req, res) => {
     console.error('Error en downloadCareerReport:', err)
     res.status(500).json({
       success: false,
-      message: err.message,
-      stack: err.stack
+      message: 'ERROR AL GENERAR EL REPORTE'
     })
   }
 }

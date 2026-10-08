@@ -95,6 +95,37 @@ class QRCode extends IQRCode {
     }
   }
 
+  static async getExistingCareersForArea(careers, area) {
+  try {
+    if (!Array.isArray(careers) || careers.length === 0 || !area) {
+      return []
+    }
+
+    const placeholders = careers.map(() => '?').join(', ')
+
+    const query = `
+      SELECT qr_career
+      FROM qr_codes
+      WHERE qr_area = ?
+      AND qr_career IN (${placeholders})
+    `
+
+    const result = await db.query(
+      query,
+      [area, ...careers]
+    )
+
+    return result.map(qr => qr.qr_career)
+  } catch (err) {
+    console.log('ERROR =>', err)
+
+    throw new Error(
+      err.message ||
+      'ERROR AL VALIDAR LOS CÓDIGOS QR EXISTENTES'
+    )
+  }
+}
+
   /**
    * Crea un nuevo código QR.
    * Valida que no exista ya un código QR para la misma carrera y área.

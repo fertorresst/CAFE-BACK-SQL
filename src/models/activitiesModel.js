@@ -1,3 +1,4 @@
+const Notification = require('./notificationModel')
 const db = require("../config/mysql")
 const IActivities = require("../interfaces/IActivities")
 const fs = require('fs')
@@ -82,6 +83,13 @@ class Activities extends IActivities {
       } catch {
         throw new Error('EVIDENCIA INVÁLIDA')
       }
+    }
+
+    // Validar que el periodo exista y esté activo antes de aceptar una actividad del estudiante.
+    const [period] = await db.query('SELECT per_status FROM periods WHERE per_id = ?', [data.periodId])
+    if (!period) throw new Error('EL PERIODO INDICADO NO EXISTE')
+    if (period.per_status !== 'active') {
+      throw new Error('NO SE PUEDEN REGISTRAR ACTIVIDADES EN UN PERIODO INACTIVO')
     }
 
     // Insertar actividad (agrega act_last_admin_id si está presente)
@@ -215,27 +223,114 @@ class Activities extends IActivities {
    */
   static async updateActivityStatus(activityId, status, observations, lastAdminId) {
     try {
-      if (!activityId) throw new Error('SE REQUIERE UN ID DE ACTIVIDAD VÁLIDO')
-      if (!lastAdminId) throw new Error('SE REQUIERE EL ID DEL ADMINISTRADOR QUE REALIZA EL CAMBIO')
-      const validStatuses = ['approval', 'pending', 'rejected', 'contacted']
-      if (!validStatuses.includes(status)) {
-        throw new Error(`ESTADO INVÁLIDO. DEBE SER UNO DE: ${validStatuses.join(', ')}`)
+      if (!activityId) {
+        throw new Error(
+          'SE REQUIERE UN ID DE ACTIVIDAD VÁLIDO'
+        )
       }
-      const checkQuery = 'SELECT act_id FROM activities WHERE act_id = ?'
-      const [activity] = await db.query(checkQuery, [activityId])
-      if (!activity) throw new Error(`NO SE ENCONTRÓ UNA ACTIVIDAD CON ID: ${activityId}`)
+
+      if (!lastAdminId) {
+        throw new Error(
+          'SE REQUIERE EL ID DEL ADMINISTRADOR QUE REALIZA EL CAMBIO'
+        )
+      }
+
+      const validStatuses = [
+        'approval',
+        'pending',
+        'rejected',
+        'contacted'
+      ]
+
+      if (!validStatuses.includes(status)) {
+        throw new Error(
+          `ESTADO INVÁLIDO. DEBE SER UNO DE: ${validStatuses.join(', ')}`
+        )
+      }
+
+      const checkQuery = `
+        SELECT
+          act_id,
+          act_name,
+          act_user_id,
+          act_observations,
+          act_status
+        FROM activities
+        WHERE act_id = ?
+      `
+
+      const [activity] = await db.query(
+        checkQuery,
+        [activityId]
+      )
+
+      if (!activity) {
+        throw new Error(
+          `NO SE ENCONTRÓ UNA ACTIVIDAD CON ID: ${activityId}`
+        )
+      }
 
       const updateQuery = `
         UPDATE activities
-        SET act_status = ?, act_observations = ?, act_last_admin_id = ?, act_updated_at = CURRENT_TIMESTAMP
+        SET
+          act_status = ?,
+          act_observations = ?,
+          act_last_admin_id = ?,
+          act_updated_at = CURRENT_TIMESTAMP
         WHERE act_id = ?
-        `
-      const result = await db.query(updateQuery, [status, observations, lastAdminId, activityId])
-      if (result.affectedRows === 0) throw new Error('NO SE PUDO ACTUALIZAR LA ACTIVIDAD')
+      `
+
+      const result = await db.query(
+        updateQuery,
+        [
+          status,
+          observations,
+          lastAdminId,
+          activityId
+        ]
+      )
+
+      if (result.affectedRows === 0) {
+        throw new Error(
+          'NO SE PUDO ACTUALIZAR LA ACTIVIDAD'
+        )
+      }
+
+      /*
+      * Solo generamos una notificación cuando existe
+      * una observación escrita.
+      */
+      if (
+        observations &&
+        observations.trim().length > 0
+      ) {
+        const statusTitles = {
+          approval: 'Actividad aprobada',
+          pending: 'Actividad en revisión',
+          rejected: 'Actividad rechazada',
+          contacted: 'Se requiere una aclaración'
+        }
+
+        await Notification.create({
+          userId: activity.act_user_id,
+          activityId: activity.act_id,
+          adminId: lastAdminId,
+          title:
+            statusTitles[status] ||
+            'Actualización de actividad',
+          message: observations.trim(),
+          status
+        })
+      }
+
       return true
     } catch (err) {
       console.log('ERROR =>', err)
-      throw new Error(err.message || 'ERROR AL ACTUALIZAR EL ESTADO DE LA ACTIVIDAD')
+
+      throw new Error(
+        err.message ||
+        'ERROR AL ACTUALIZAR EL ESTADO DE LA ACTIVIDAD'
+      )
     }
   }
 
@@ -467,7 +562,12 @@ class Activities extends IActivities {
    * @returns {Promise<Object[]>}
    */
   static async getActivityRaw(activityId) {
-    const query = 'SELECT * FROM activities WHERE act_id = ?'
+    const query = `
+      SELECT a.*, p.per_status
+      FROM activities a
+      INNER JOIN periods p ON p.per_id = a.act_period_id
+      WHERE a.act_id = ?
+    `
     return db.query(query, [activityId])
   }
 

@@ -81,9 +81,8 @@ const deleteContactById = async (req, res) => {
  * @route PUT /contacts
  */
 const updateContact = async (req, res) => {
-  const { id, observations, status, lastAdminId } = req.body
-  console.log('🚀 ~ updateContact ~ lastAdminId:', lastAdminId)
-  const { adminRole } = req
+  const { id, observations, status } = req.body
+  const { adminRole, adminId } = req
   try {
     // Solo superadmin, admin y validador pueden modificar contactos
     if (!['superadmin', 'admin', 'validador'].includes(adminRole)) {
@@ -98,7 +97,7 @@ const updateContact = async (req, res) => {
         message: 'SE REQUIERE EL ID Y EL NUEVO ESTADO DEL CONTACTO'
       })
     }
-    await Contact.updateContact(id, observations, status, lastAdminId)
+    await Contact.updateContact(id, observations, status, adminId)
     res.status(200).json({
       success: true,
       message: 'CONTACTO ACTUALIZADO CORRECTAMENTE'
@@ -116,8 +115,8 @@ const updateContact = async (req, res) => {
  * @route POST /contacts
  */
 const createContact = async (req, res) => {
-  const { userId, adminId, periodId, activityId, description } = req.body
-  const { adminRole } = req
+  const { userId, periodId, activityId, description } = req.body
+  const { adminRole, adminId } = req
   try {
     // Solo superadmin, admin y validador pueden modificar contactos
     if (!['superadmin', 'admin', 'validador'].includes(adminRole)) {

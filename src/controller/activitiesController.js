@@ -32,7 +32,7 @@ const getActivitiesByPeriod = async (req, res) => {
 const updateActivityStatus = async (req, res) => {
   try {
     const { activityId } = req.params
-    const { status, observations, lastAdminId } = req.body
+    const { status, observations } = req.body
 
     // Solo superadmin, admin y validador pueden modificar
     if (!['superadmin', 'admin', 'validador'].includes(req.adminRole)) {
@@ -42,14 +42,7 @@ const updateActivityStatus = async (req, res) => {
       })
     }
 
-    if (!lastAdminId) {
-      return res.status(400).json({
-        success: false,
-        message: 'SE REQUIERE EL ID DEL ADMINISTRADOR QUE REALIZA EL CAMBIO'
-      })
-    }
-
-    await Activities.updateActivityStatus(activityId, status, observations, lastAdminId)
+    await Activities.updateActivityStatus(activityId, status, observations, req.adminId)
 
     res.status(200).json({
       success: true,
@@ -72,20 +65,13 @@ const updateActivityStatus = async (req, res) => {
 const updateActivity = async (req, res) => {
   try {
     const { activityId } = req.params
-    const activityData = { ...req.body }
+    const activityData = { ...req.body, lastAdminId: req.adminId }
 
     // Solo superadmin, admin y validador pueden modificar
     if (!['superadmin', 'admin', 'validador'].includes(req.adminRole)) {
       return res.status(403).json({
         success: false,
         message: 'NO TIENES PERMISOS PARA MODIFICAR ACTIVIDADES'
-      })
-    }
-
-    if (!activityData.lastAdminId) {
-      return res.status(400).json({
-        success: false,
-        message: 'SE REQUIERE EL ID DEL ADMINISTRADOR QUE REALIZA EL CAMBIO'
       })
     }
 
@@ -111,7 +97,10 @@ const updateActivity = async (req, res) => {
 const getActivitiesByUserId = async (req, res) => {
   try {
     const { id } = req.params
-    const activities = await Activities.getActivitiesByUserId(id)
+    if (Number(id) !== Number(req.user.id)) {
+      return res.status(403).json({ success: false, message: 'NO PUEDES CONSULTAR ACTIVIDADES DE OTRO USUARIO' })
+    }
+    const activities = await Activities.getActivitiesByUserId(req.user.id)
     res.status(200).json({
       activities,
       success: true,
@@ -135,6 +124,13 @@ const getActivitiesByUserId = async (req, res) => {
 const deleteActivity = async (req, res) => {
   try {
     const { activityId } = req.params
+    const [activity] = await Activities.getActivityRaw(activityId)
+    if (!activity) {
+      return res.status(404).json({ success: false, message: 'ACTIVIDAD NO ENCONTRADA' })
+    }
+    if (Number(activity.act_user_id) !== Number(req.user.id)) {
+      return res.status(403).json({ success: false, message: 'NO PUEDES ELIMINAR ACTIVIDADES DE OTRO USUARIO' })
+    }
 
     await Activities.deleteActivity(activityId)
     res.status(200).json({

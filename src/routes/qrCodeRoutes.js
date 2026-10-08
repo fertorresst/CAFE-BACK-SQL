@@ -32,14 +32,20 @@ const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     cb(null, uploadDir)
   },
-  filename: function (req, file, cb) {
-    const { career, area } = req.body
-    // Nombre de archivo: CARRERA_AREA_UUID.extension
-    const areaClean = area ? area.replace(/\//g, '-') : 'UNKNOWN'
-    const uniqueId = uuidv4().substring(0, 8)
-    const ext = path.extname(file.originalname)
-    cb(null, `${career || 'UNKNOWN'}_${areaClean}_${uniqueId}${ext}`)
-  }
+filename: function (req, file, cb) {
+  const { area } = req.body
+
+  const areaClean = area
+    ? area.replace(/\//g, '-')
+    : 'UNKNOWN'
+
+  const uniqueId = uuidv4().substring(0, 8)
+  const ext = path.extname(file.originalname).toLowerCase()
+
+  // Archivo temporal. El controlador generará después
+  // una copia independiente para cada carrera.
+  cb(null, `QR_${areaClean}_${uniqueId}${ext}`)
+}
 })
 
 /**

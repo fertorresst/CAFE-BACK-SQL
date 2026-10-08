@@ -8,5 +8,6 @@ router.use("/activities", require("./activityRoutes"))
 router.use("/evidence", require("./evidenceRoutes"))
 router.use("/admin", require("./adminRoutes"))
 router.use("/qr-codes", require("./qrCodeRoutes"))
+router.use('/notifications', require('./notificationRoutes'))
 
 module.exports = router
