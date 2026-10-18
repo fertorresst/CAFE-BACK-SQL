@@ -7,6 +7,7 @@ const {
   loginUser,
   getAllUsers,
   createUser,
+  createUserByAdmin,
   sendVerificationCode,
   verifyEmailCode,
   updateUserPassword,
@@ -62,8 +63,11 @@ router.post("/send-verification-code", verificationLimiter, sendVerificationCode
 // Verificar código enviado al correo institucional
 router.post("/verify-email-code", verifyCodeLimiter, verifyEmailCode)
 
-// Crear usuario
+// Crear usuario (registro público: exige correo verificado)
 router.post("/create-user", registerLimiter, createUser)
+
+// Crear usuario desde el panel de administración (sin código de verificación)
+router.post("/admin-create-user", adminAuthMiddleware, createUserByAdmin)
 
 // Actualizar usuario
 router.put("/update-user/:id", userAuthMiddleware, updateUser)

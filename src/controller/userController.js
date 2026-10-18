@@ -319,6 +319,60 @@ const createUser = async (req, res) => {
 }
 
 /**
+ * Crea un estudiante desde el panel de administración.
+ * El administrador autenticado es quien registra al alumno, por lo que NO se
+ * pide el código de verificación del correo. El dominio @ugto.mx sí se valida.
+ * Solo pueden usarlo los roles superadmin y admin.
+ * @route POST /users/admin-create-user
+ */
+const createUserByAdmin = async (req, res) => {
+  try {
+    if (!['superadmin', 'admin'].includes(req.adminRole)) {
+      return res.status(403).json({
+        success: false,
+        message: 'NO TIENES PERMISOS PARA REGISTRAR ESTUDIANTES'
+      })
+    }
+
+    // Se ignora cualquier token de verificación que venga en el cuerpo
+    const data = { ...req.body }
+    delete data.verificationToken
+
+    if (!data.email || typeof data.email !== 'string') {
+      return res.status(400).json({
+        success: false,
+        message: 'EL CORREO ELECTRÓNICO ES OBLIGATORIO'
+      })
+    }
+
+    const normalizedEmail = data.email.trim().toLowerCase()
+
+    // Solo correos institucionales, aunque lo registre un administrador
+    if (!INSTITUTIONAL_EMAIL_REGEX.test(normalizedEmail)) {
+      return res.status(400).json({
+        success: false,
+        message: 'EL CORREO ELECTRÓNICO DEBE SER INSTITUCIONAL (@ugto.mx)'
+      })
+    }
+
+    data.email = normalizedEmail
+
+    const newUserId = await User.createUser(data)
+
+    res.status(201).json({
+      id: newUserId,
+      success: true,
+      message: 'USUARIO CREADO CORRECTAMENTE'
+    })
+  } catch (err) {
+    res.status(400).json({
+      message: err.message,
+      success: false
+    })
+  }
+}
+
+/**
  * Actualiza los datos de un usuario.
  * @route PUT /users/update-user/:id
  */
@@ -619,6 +673,7 @@ const updateProfile = async (req, res) => {
 module.exports = {
   getAllUsers,
   createUser,
+  createUserByAdmin,
   sendVerificationCode,
   verifyEmailCode,
   updateUser,
