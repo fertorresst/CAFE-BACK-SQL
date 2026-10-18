@@ -373,7 +373,43 @@ const createUserByAdmin = async (req, res) => {
 }
 
 /**
+ * Si el correo de la cuenta cambia, el nuevo correo debe estar verificado.
+ * Devuelve null cuando todo está bien, o { status, message } con el motivo del rechazo.
+ * Si el correo no cambia (o no viene), no se pide verificación.
+ */
+const checkEmailChange = async (userId, newEmail, verificationToken) => {
+  if (typeof newEmail !== 'string') return null
+
+  const normalizedEmail = newEmail.trim().toLowerCase()
+  const current = await User.getUserById(userId)
+
+  if (String(current.email || '').trim().toLowerCase() === normalizedEmail) return null
+
+  if (!INSTITUTIONAL_EMAIL_REGEX.test(normalizedEmail)) {
+    return { status: 400, message: 'EL CORREO ELECTRÓNICO DEBE SER INSTITUCIONAL (@ugto.mx)' }
+  }
+
+  if (!verificationToken) {
+    return { status: 403, message: 'DEBES VERIFICAR EL NUEVO CORREO ELECTRÓNICO ANTES DE CAMBIARLO' }
+  }
+
+  let verification
+  try {
+    verification = jwt.verify(verificationToken, process.env.JWT_SECRET)
+  } catch (error) {
+    return { status: 403, message: 'LA VERIFICACIÓN DEL CORREO HA EXPIRADO O NO ES VÁLIDA' }
+  }
+
+  if (verification.type !== 'email_verification' || verification.email !== normalizedEmail) {
+    return { status: 403, message: 'EL CORREO NO COINCIDE CON EL CORREO VERIFICADO' }
+  }
+
+  return null
+}
+
+/**
  * Actualiza los datos de un usuario.
+ * Si cambia el correo, exige un token de verificación del nuevo correo.
  * @route PUT /users/update-user/:id
  */
 
@@ -383,7 +419,11 @@ const updateUser = async (req, res) => {
     if (Number(id) !== Number(req.user.id)) {
       return res.status(403).json({ success: false, message: 'NO PUEDES MODIFICAR OTRO USUARIO' })
     }
-    const data = req.body
+    const { verificationToken, ...data } = req.body
+    const emailError = await checkEmailChange(req.user.id, data.email, verificationToken)
+    if (emailError) {
+      return res.status(emailError.status).json({ success: false, message: emailError.message })
+    }
     const updated = await User.updateUser(req.user.id, data)
     if (updated) {
       res.status(200).json({
@@ -570,7 +610,7 @@ const getProfile = async (req, res) => {
 const updateProfile = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { name, lastName, secondLastName, email, phone, nua, career, sede } = req.body;
+    const { name, lastName, secondLastName, email, phone, nua, career, sede, verificationToken } = req.body;
 
     // Validar campos requeridos
     if (!name || !lastName || !email || !phone || !nua || !career || !sede) {
@@ -588,12 +628,20 @@ const updateProfile = async (req, res) => {
       });
     }
 
-    // Validar formato de email
-    const emailRegex = /.+@ugto\.mx$/;
-    if (!emailRegex.test(email)) {
+    // Validar formato de email (mismo criterio que el registro)
+    if (typeof email !== 'string' || !INSTITUTIONAL_EMAIL_REGEX.test(email.trim().toLowerCase())) {
       return res.status(400).json({
         success: false,
         message: 'EL CORREO ELECTRÓNICO DEBE SER INSTITUCIONAL (@ugto.mx)'
+      });
+    }
+
+    // Si el correo cambió, el nuevo correo debe haberse verificado con código
+    const emailError = await checkEmailChange(userId, email, verificationToken);
+    if (emailError) {
+      return res.status(emailError.status).json({
+        success: false,
+        message: emailError.message
       });
     }
 
