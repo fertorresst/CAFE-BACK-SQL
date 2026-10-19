@@ -48,9 +48,9 @@ const sendVerificationEmail = async (to, code) => {
   await mailer.sendMail({
     from: process.env.SMTP_FROM || process.env.SMTP_USER,
     to,
-    subject: 'Código de verificación - MiCAFÉ',
+    subject: 'Código de verificación - MiCAFE',
     text:
-      `Tu código de verificación de MiCAFÉ es: ${code}\n\n` +
+      `Tu código de verificación de MiCAFE es: ${code}\n\n` +
       'Este código expirará en 10 minutos.\n\n' +
       'Si tú no solicitaste este código, puedes ignorar este mensaje.'
   })

@@ -29,8 +29,19 @@ app.use((req, res, next) => {
 })
 
 // CORS limitado al frontend configurado.
+const allowedOrigins = [
+  'http://localhost:3000',
+  'https://micafe.ugto.mx'
+]
+
 app.use(cors({
-  origin: process.env.FRONTEND_ORIGIN || 'http://localhost:3000',
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      return callback(null, true)
+    }
+
+    return callback(new Error('Origen no permitido por CORS'))
+  },
   credentials: true
 }))
 
