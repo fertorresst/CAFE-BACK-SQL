@@ -1,19 +1,60 @@
 const User = require('../models/userModel')
 const jwt = require('jsonwebtoken')
-//const bcrypt = require('bcrypt')
-//const crypto = require('crypto')
-//const nodemailer = require('nodemailer')
+const bcrypt = require('bcrypt')
+const crypto = require('crypto')
+const nodemailer = require('nodemailer')
 
-/*const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: Number(process.env.SMTP_PORT),
-  secure: Number(process.env.SMTP_PORT) === 465,
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASSWORD
+// Solo se aceptan correos institucionales de la UG.
+const INSTITUTIONAL_EMAIL_REGEX = /^[^\s@]+@ugto\.mx$/
+
+// El transporte SMTP se crea la primera vez que se necesita (así el .env ya está cargado).
+let transporter = null
+
+const getTransporter = () => {
+  if (transporter) return transporter
+
+  const { SMTP_HOST, SMTP_USER, SMTP_PASSWORD, SMTP_PORT } = process.env
+  if (!SMTP_HOST || !SMTP_USER || !SMTP_PASSWORD) return null
+
+  transporter = nodemailer.createTransport({
+    host: SMTP_HOST,
+    port: Number(SMTP_PORT) || 587,
+    secure: Number(SMTP_PORT) === 465,
+    auth: {
+      user: SMTP_USER,
+      pass: SMTP_PASSWORD
+    }
+  })
+
+  return transporter
+}
+
+/**
+ * Envía el código de verificación por correo.
+ * Si no hay SMTP configurado y NO estamos en producción, el código se imprime
+ * en la consola del servidor para poder probar en local sin servidor de correo.
+ */
+const sendVerificationEmail = async (to, code) => {
+  const mailer = getTransporter()
+
+  if (!mailer) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('SMTP NO CONFIGURADO')
+    }
+    console.log(`[DEV] SMTP no configurado. Código de verificación para ${to}: ${code}`)
+    return
   }
-})
-*/
+
+  await mailer.sendMail({
+    from: process.env.SMTP_FROM || process.env.SMTP_USER,
+    to,
+    subject: 'Código de verificación - MiCAFE',
+    text:
+      `Tu código de verificación de MiCAFE es: ${code}\n\n` +
+      'Este código expirará en 10 minutos.\n\n' +
+      'Si tú no solicitaste este código, puedes ignorar este mensaje.'
+  })
+}
 
 /**
  * Obtiene todos los usuarios registrados.
@@ -47,7 +88,7 @@ const getAllUsers = async (req, res) => {
  * Envía un código de verificación al correo institucional del estudiante.
  * @route POST /users/send-verification-code
  */
-/*const sendVerificationCode = async (req, res) => {
+const sendVerificationCode = async (req, res) => {
   try {
     const { email } = req.body
 
@@ -61,9 +102,7 @@ const getAllUsers = async (req, res) => {
     const normalizedEmail = email.trim().toLowerCase()
 
     // Validar que sea un correo institucional
-    const emailRegex = /^[^\s@]+@ugto\.mx$/
-
-    if (!emailRegex.test(normalizedEmail)) {
+    if (!INSTITUTIONAL_EMAIL_REGEX.test(normalizedEmail)) {
       return res.status(400).json({
         success: false,
         message: 'EL CORREO ELECTRÓNICO DEBE SER INSTITUCIONAL (@ugto.mx)'
@@ -81,77 +120,58 @@ const getAllUsers = async (req, res) => {
     }
 
     // Generar código seguro de seis dígitos
-    const verificationCode = crypto
-      .randomInt(100000, 1000000)
-      .toString()
+    const verificationCode = crypto.randomInt(100000, 1000000).toString()
 
     // Guardar solamente el hash del código
-    const codeHash = await bcrypt.hash(
-      verificationCode,
-      10
-    )
+    const codeHash = await bcrypt.hash(verificationCode, 10)
 
     // El código tendrá una vigencia de 10 minutos
-    const expiresAt = new Date(
-      Date.now() + 10 * 60 * 1000
-    )
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000)
 
-    await User.saveEmailVerification(
-      normalizedEmail,
-      codeHash,
-      expiresAt
-    )
+    await User.saveEmailVerification(normalizedEmail, codeHash, expiresAt)
 
     // Enviar código por correo electrónico
-    await transporter.sendMail({
-      from: process.env.SMTP_FROM || process.env.SMTP_USER,
-      to: normalizedEmail,
-      subject: 'Código de verificación - MiCAFÉ',
-      text:
-        `Tu código de verificación de MiCAFÉ es: ${verificationCode}\n\n` +
-        'Este código expirará en 10 minutos.\n\n' +
-        'Si tú no solicitaste este código, puedes ignorar este mensaje.'
-    })
+    await sendVerificationEmail(normalizedEmail, verificationCode)
 
     return res.status(200).json({
       success: true,
       message: 'CÓDIGO DE VERIFICACIÓN ENVIADO AL CORREO INSTITUCIONAL'
     })
   } catch (err) {
-    console.error(
-      'Error al enviar código de verificación:',
-      err
-    )
+    console.error('Error al enviar código de verificación:', err)
 
     return res.status(500).json({
       success: false,
       message: 'NO SE PUDO ENVIAR EL CÓDIGO DE VERIFICACIÓN'
     })
   }
-} */
-
+}
 
 /**
  * Comprueba el código enviado al correo electrónico.
  * @route POST /users/verify-email-code
  */
-/*const verifyEmailCode = async (req, res) => {
+const verifyEmailCode = async (req, res) => {
   try {
     const { email, code } = req.body
 
-    if (!email || !code) {
+    if (!email || !code || typeof email !== 'string') {
       return res.status(400).json({
         success: false,
         message: 'CORREO Y CÓDIGO DE VERIFICACIÓN SON OBLIGATORIOS'
       })
     }
 
-    const normalizedEmail = email
-      .trim()
-      .toLowerCase()
+    const normalizedEmail = email.trim().toLowerCase()
 
-    const verification =
-      await User.getEmailVerification(normalizedEmail)
+    if (!INSTITUTIONAL_EMAIL_REGEX.test(normalizedEmail)) {
+      return res.status(400).json({
+        success: false,
+        message: 'EL CORREO ELECTRÓNICO DEBE SER INSTITUCIONAL (@ugto.mx)'
+      })
+    }
+
+    const verification = await User.getEmailVerification(normalizedEmail)
 
     if (!verification) {
       return res.status(400).json({
@@ -161,13 +181,8 @@ const getAllUsers = async (req, res) => {
     }
 
     // Comprobar expiración
-    if (
-      new Date(verification.ev_expires_at).getTime() <
-      Date.now()
-    ) {
-      await User.deleteEmailVerification(
-        normalizedEmail
-      )
+    if (new Date(verification.ev_expires_at).getTime() < Date.now()) {
+      await User.deleteEmailVerification(normalizedEmail)
 
       return res.status(400).json({
         success: false,
@@ -184,14 +199,12 @@ const getAllUsers = async (req, res) => {
     }
 
     const codeIsValid = await bcrypt.compare(
-      code.toString(),
+      String(code).trim(),
       verification.ev_code_hash
     )
 
     if (!codeIsValid) {
-      await User.incrementVerificationAttempts(
-        normalizedEmail
-      )
+      await User.incrementVerificationAttempts(normalizedEmail)
 
       return res.status(400).json({
         success: false,
@@ -200,9 +213,7 @@ const getAllUsers = async (req, res) => {
     }
 
     // Código correcto: eliminarlo para que no pueda reutilizarse
-    await User.deleteEmailVerification(
-      normalizedEmail
-    )
+    await User.deleteEmailVerification(normalizedEmail)
 
     // Token temporal que autoriza a crear una cuenta con este correo
     const verificationToken = jwt.sign(
@@ -222,31 +233,23 @@ const getAllUsers = async (req, res) => {
       verificationToken
     })
   } catch (err) {
-    console.error(
-      'Error al verificar correo:',
-      err
-    )
+    console.error('Error al verificar correo:', err)
 
     return res.status(500).json({
       success: false,
       message: 'ERROR AL VERIFICAR EL CORREO ELECTRÓNICO'
     })
   }
-} */
+}
 
 /**
  * Crea un nuevo usuario.
  * Requiere que el correo electrónico haya sido verificado previamente.
  * @route POST /users/create-user
  */
-
-// Solo cuando implemente la verificacion de correo
-/*const createUser = async (req, res) => {
+const createUser = async (req, res) => {
   try {
-    const {
-      verificationToken,
-      ...data
-    } = req.body
+    const { verificationToken, ...data } = req.body
 
     if (!verificationToken) {
       return res.status(403).json({
@@ -258,10 +261,7 @@ const getAllUsers = async (req, res) => {
     let verification
 
     try {
-      verification = jwt.verify(
-        verificationToken,
-        process.env.JWT_SECRET
-      )
+      verification = jwt.verify(verificationToken, process.env.JWT_SECRET)
     } catch (error) {
       return res.status(403).json({
         success: false,
@@ -269,30 +269,32 @@ const getAllUsers = async (req, res) => {
       })
     }
 
-    if (
-      verification.type !== 'email_verification'
-    ) {
+    if (verification.type !== 'email_verification') {
       return res.status(403).json({
         success: false,
         message: 'TOKEN DE VERIFICACIÓN NO VÁLIDO'
       })
     }
 
-    if (!data.email) {
+    if (!data.email || typeof data.email !== 'string') {
       return res.status(400).json({
         success: false,
         message: 'EL CORREO ELECTRÓNICO ES OBLIGATORIO'
       })
     }
 
-    const normalizedEmail =
-      data.email.trim().toLowerCase()
+    const normalizedEmail = data.email.trim().toLowerCase()
 
-    // El correo registrado debe ser exactamente
-    // el mismo que fue verificado
-    if (
-      verification.email !== normalizedEmail
-    ) {
+    // Doble validación del dominio en el servidor (no depender solo del front)
+    if (!INSTITUTIONAL_EMAIL_REGEX.test(normalizedEmail)) {
+      return res.status(400).json({
+        success: false,
+        message: 'EL CORREO ELECTRÓNICO DEBE SER INSTITUCIONAL (@ugto.mx)'
+      })
+    }
+
+    // El correo registrado debe ser exactamente el mismo que fue verificado
+    if (verification.email !== normalizedEmail) {
       return res.status(403).json({
         success: false,
         message: 'EL CORREO REGISTRADO NO COINCIDE CON EL CORREO VERIFICADO'
@@ -300,36 +302,6 @@ const getAllUsers = async (req, res) => {
     }
 
     data.email = normalizedEmail
-
-    const newUserId =
-      await User.createUser(data)
-
-    res.status(201).json({
-      id: newUserId,
-      success: true,
-      message: 'USUARIO CREADO CORRECTAMENTE'
-    })
-  } catch (err) {
-    res.status(400).json({
-      message: err.message,
-      success: false
-    })
-  }
-} */
-
-/**
- * Actualiza los datos de un usuario.
- * @route PUT /users/update-user/:id
- */
-
-// Sin verificacion de correo
-/**
- * Crea un nuevo usuario.
- * @route POST /users/create-user
- */
-const createUser = async (req, res) => {
-  try {
-    const data = req.body
 
     const newUserId = await User.createUser(data)
 
@@ -346,13 +318,112 @@ const createUser = async (req, res) => {
   }
 }
 
+/**
+ * Crea un estudiante desde el panel de administración.
+ * El administrador autenticado es quien registra al alumno, por lo que NO se
+ * pide el código de verificación del correo. El dominio @ugto.mx sí se valida.
+ * Solo pueden usarlo los roles superadmin y admin.
+ * @route POST /users/admin-create-user
+ */
+const createUserByAdmin = async (req, res) => {
+  try {
+    if (!['superadmin', 'admin'].includes(req.adminRole)) {
+      return res.status(403).json({
+        success: false,
+        message: 'NO TIENES PERMISOS PARA REGISTRAR ESTUDIANTES'
+      })
+    }
+
+    // Se ignora cualquier token de verificación que venga en el cuerpo
+    const data = { ...req.body }
+    delete data.verificationToken
+
+    if (!data.email || typeof data.email !== 'string') {
+      return res.status(400).json({
+        success: false,
+        message: 'EL CORREO ELECTRÓNICO ES OBLIGATORIO'
+      })
+    }
+
+    const normalizedEmail = data.email.trim().toLowerCase()
+
+    // Solo correos institucionales, aunque lo registre un administrador
+    if (!INSTITUTIONAL_EMAIL_REGEX.test(normalizedEmail)) {
+      return res.status(400).json({
+        success: false,
+        message: 'EL CORREO ELECTRÓNICO DEBE SER INSTITUCIONAL (@ugto.mx)'
+      })
+    }
+
+    data.email = normalizedEmail
+
+    const newUserId = await User.createUser(data)
+
+    res.status(201).json({
+      id: newUserId,
+      success: true,
+      message: 'USUARIO CREADO CORRECTAMENTE'
+    })
+  } catch (err) {
+    res.status(400).json({
+      message: err.message,
+      success: false
+    })
+  }
+}
+
+/**
+ * Si el correo de la cuenta cambia, el nuevo correo debe estar verificado.
+ * Devuelve null cuando todo está bien, o { status, message } con el motivo del rechazo.
+ * Si el correo no cambia (o no viene), no se pide verificación.
+ */
+const checkEmailChange = async (userId, newEmail, verificationToken) => {
+  if (typeof newEmail !== 'string') return null
+
+  const normalizedEmail = newEmail.trim().toLowerCase()
+  const current = await User.getUserById(userId)
+
+  if (String(current.email || '').trim().toLowerCase() === normalizedEmail) return null
+
+  if (!INSTITUTIONAL_EMAIL_REGEX.test(normalizedEmail)) {
+    return { status: 400, message: 'EL CORREO ELECTRÓNICO DEBE SER INSTITUCIONAL (@ugto.mx)' }
+  }
+
+  if (!verificationToken) {
+    return { status: 403, message: 'DEBES VERIFICAR EL NUEVO CORREO ELECTRÓNICO ANTES DE CAMBIARLO' }
+  }
+
+  let verification
+  try {
+    verification = jwt.verify(verificationToken, process.env.JWT_SECRET)
+  } catch (error) {
+    return { status: 403, message: 'LA VERIFICACIÓN DEL CORREO HA EXPIRADO O NO ES VÁLIDA' }
+  }
+
+  if (verification.type !== 'email_verification' || verification.email !== normalizedEmail) {
+    return { status: 403, message: 'EL CORREO NO COINCIDE CON EL CORREO VERIFICADO' }
+  }
+
+  return null
+}
+
+/**
+ * Actualiza los datos de un usuario.
+ * Si cambia el correo, exige un token de verificación del nuevo correo.
+ * @route PUT /users/update-user/:id
+ */
+
 const updateUser = async (req, res) => {
   try {
     const { id } = req.params
     if (Number(id) !== Number(req.user.id)) {
       return res.status(403).json({ success: false, message: 'NO PUEDES MODIFICAR OTRO USUARIO' })
     }
-    const data = req.body
+    const { verificationToken, ...data } = req.body
+    const emailError = await checkEmailChange(req.user.id, data.email, verificationToken)
+    if (emailError) {
+      return res.status(emailError.status).json({ success: false, message: emailError.message })
+    }
     const updated = await User.updateUser(req.user.id, data)
     if (updated) {
       res.status(200).json({
@@ -539,7 +610,7 @@ const getProfile = async (req, res) => {
 const updateProfile = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { name, lastName, secondLastName, email, phone, nua, career, sede } = req.body;
+    const { name, lastName, secondLastName, email, phone, nua, career, sede, verificationToken } = req.body;
 
     // Validar campos requeridos
     if (!name || !lastName || !email || !phone || !nua || !career || !sede) {
@@ -557,12 +628,20 @@ const updateProfile = async (req, res) => {
       });
     }
 
-    // Validar formato de email
-    const emailRegex = /.+@ugto\.mx$/;
-    if (!emailRegex.test(email)) {
+    // Validar formato de email (mismo criterio que el registro)
+    if (typeof email !== 'string' || !INSTITUTIONAL_EMAIL_REGEX.test(email.trim().toLowerCase())) {
       return res.status(400).json({
         success: false,
         message: 'EL CORREO ELECTRÓNICO DEBE SER INSTITUCIONAL (@ugto.mx)'
+      });
+    }
+
+    // Si el correo cambió, el nuevo correo debe haberse verificado con código
+    const emailError = await checkEmailChange(userId, email, verificationToken);
+    if (emailError) {
+      return res.status(emailError.status).json({
+        success: false,
+        message: emailError.message
       });
     }
 
@@ -642,8 +721,9 @@ const updateProfile = async (req, res) => {
 module.exports = {
   getAllUsers,
   createUser,
-  //sendVerificationCode,
-  //verifyEmailCode,
+  createUserByAdmin,
+  sendVerificationCode,
+  verifyEmailCode,
   updateUser,
   updateUserPassword,
   deleteUser,

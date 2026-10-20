@@ -7,6 +7,7 @@ const {
   loginUser,
   getAllUsers,
   createUser,
+  createUserByAdmin,
   sendVerificationCode,
   verifyEmailCode,
   updateUserPassword,
@@ -30,7 +31,7 @@ const registerLimiter = rateLimit({
   }
 })
 
-/*const verificationLimiter = rateLimit({
+const verificationLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 5,
   standardHeaders: true,
@@ -39,22 +40,34 @@ const registerLimiter = rateLimit({
     success: false,
     message: 'DEMASIADAS SOLICITUDES DE CÓDIGO. INTENTA NUEVAMENTE EN 15 MINUTOS.'
   }
-}) */ 
+})
+
+// Límite para comprobar códigos (evita adivinar el código de 6 dígitos)
+const verifyCodeLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: 'DEMASIADOS INTENTOS DE VERIFICACIÓN. INTENTA NUEVAMENTE EN 15 MINUTOS.'
+  }
+})
 
 // Obtener todos los usuarios
 router.get("/get-all-users", adminAuthMiddleware, getAllUsers)
 
 // Enviar código de verificación al correo institucional
-//router.post("/send-verification-code", verificationLimiter, sendVerificationCode)
+router.post("/send-verification-code", verificationLimiter, sendVerificationCode)
 
 // Verificar código enviado al correo institucional
-//router.post("/verify-email-code", verifyEmailCode)
+router.post("/verify-email-code", verifyCodeLimiter, verifyEmailCode)
 
-// Crear usuario
+// Crear usuario (registro público: exige correo verificado)
 router.post("/create-user", registerLimiter, createUser)
 
-// Crear usuario
-router.post( "/create-user", registerLimiter, createUser )
+// Crear usuario desde el panel de administración (sin código de verificación)
+router.post("/admin-create-user", adminAuthMiddleware, createUserByAdmin)
 
 // Actualizar usuario
 router.put("/update-user/:id", userAuthMiddleware, updateUser)
