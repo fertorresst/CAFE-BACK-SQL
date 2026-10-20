@@ -169,7 +169,9 @@ class Activities extends IActivities {
           let evidenceLinks = []
           if (activity.act_evidence) {
             try {
-              const evidence = JSON.parse(activity.act_evidence.toString())
+              const evidence = typeof activity.act_evidence === 'string'
+              ? JSON.parse(activity.act_evidence)
+              : activity.act_evidence
               if (typeof evidence === 'object') {
                 evidenceLinks = Object.values(evidence).flat().filter(item => item)
               }
@@ -474,7 +476,9 @@ class Activities extends IActivities {
         let evidenceLinks = []
         if (activity.act_evidence) {
           try {
-            const evidence = JSON.parse(activity.act_evidence.toString())
+            const evidence = typeof activity.act_evidence === 'string'
+            ? JSON.parse(activity.act_evidence)
+            : activity.act_evidence
             if (typeof evidence === 'object') {
               evidenceLinks = Object.values(evidence).flat().filter(item => item)
             }

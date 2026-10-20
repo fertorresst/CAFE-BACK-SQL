@@ -1,6 +1,7 @@
 const express = require("express")
 const rateLimit = require('express-rate-limit')
 const router = express.Router()
+const periodController = require("../controller/periodController")
 
 const {
   updateUser,
@@ -103,5 +104,12 @@ router.get('/me', userAuthMiddleware, getProfile)
 // Rutas de perfil del estudiante autenticado
 router.get('/profile', userAuthMiddleware, getProfile);
 router.put('/update-profile', userAuthMiddleware, updateProfile);
+
+// Obtener periodos para el alumno autenticado
+router.get(
+  "/available-periods",
+  userAuthMiddleware,
+  periodController.getAllPeriods
+)
 
 module.exports = router
