@@ -87,44 +87,69 @@ class ReportGenerator {
         WHERE act_user_id = ? AND act_period_id = ? 
           AND (act_status = 'approval' OR act_status = 'rejected')
       `, [student.use_id, periodId])
-      
+            
       // Procesar evidencias
       for (const activity of student.activities) {
+        activity.evidenceLinks = []
+        activity.evidenceBase64 = []
+
+        if (!activity.act_evidence) continue
+
         try {
-          activity.evidenceLinks = []
-          activity.evidenceBase64 = [] // Nuevo arreglo para imágenes en base64
-          
-          if (activity.act_evidence) {
-            const evidence = JSON.parse(activity.act_evidence.toString())
-            if (typeof evidence === 'object') {
-              const links = Object.values(evidence)
-                .flat()
-                .filter(item => item)
-                .slice(0, 2) // Limitar a máximo 2 imágenes
-              
-              // Convertir cada imagen a base64
-              for (const link of links) {
-                try {
-                  const imagePath = path.join(__dirname, '../../uploads', link)
-                  if (fs.existsSync(imagePath)) {
-                    const imageBuffer = fs.readFileSync(imagePath)
-                    const resizedBuffer = await sharp(imageBuffer)
-                      .resize({ width: 600 }) // ajusta el ancho según lo necesario
-                      .webp({ quality: 70 })  // ajusta la calidad (0-100)
-                      .toBuffer();
-                    const base64Image = `data:image/webp;base64,${resizedBuffer.toString('base64')}`
-                    activity.evidenceBase64.push(base64Image)
-                  }
-                } catch (err) {
-                  console.error('Error al convertir imagen a base64:', err)
-                }
+          const evidence = typeof activity.act_evidence === 'string'
+            ? JSON.parse(activity.act_evidence)
+            : activity.act_evidence
+
+          if (!evidence || typeof evidence !== 'object') continue
+
+          const links = Object.values(evidence)
+            .flat()
+            .filter(item => typeof item === 'string' && item.trim())
+            .slice(0, 2)
+
+          for (const link of links) {
+            try {
+              const relativePath = link.replace(/^\/+/, '')
+              const imagePath = path.resolve(
+                __dirname,
+                '../../uploads',
+                relativePath
+              )
+
+              const evidenceDir = path.resolve(
+                __dirname,
+                '../../uploads/evidence'
+              )
+
+              if (!imagePath.startsWith(evidenceDir + path.sep)) {
+                console.warn('Ruta de evidencia no válida:', link)
+                continue
               }
+
+              if (!fs.existsSync(imagePath)) {
+                console.warn('No se encontró la evidencia:', imagePath)
+                continue
+              }
+
+              const imageBuffer = fs.readFileSync(imagePath)
+
+              const resizedBuffer = await sharp(imageBuffer)
+                .resize({ width: 600, withoutEnlargement: true })
+                .webp({ quality: 70 })
+                .toBuffer()
+
+              activity.evidenceBase64.push(
+                `data:image/webp;base64,${resizedBuffer.toString('base64')}`
+              )
+            } catch (err) {
+              console.error('Error al convertir evidencia:', link, err)
             }
           }
-        } catch (e) {
-          console.error('Error al procesar evidencias:', e)
-          activity.evidenceLinks = []
-          activity.evidenceBase64 = []
+        } catch (err) {
+          console.error(
+            `Error al procesar evidencias de actividad ${activity.act_id}:`,
+            err
+          )
         }
       }
     }
@@ -286,35 +311,7 @@ class ReportGenerator {
         FROM activities
         WHERE act_user_id = ? AND act_period_id = ?
       `, [student.use_id, periodId])
-
-      for (const activity of student.activities) {
-        try {
-          activity.evidenceLinks = []
-          activity.evidenceBase64 = []
-          if (activity.act_evidence) {
-            const evidence = JSON.parse(activity.act_evidence.toString())
-            if (typeof evidence === 'object') {
-              const links = Object.values(evidence).flat().filter(Boolean).slice(0, 2)
-              for (const link of links) {
-                try {
-                  const imagePath = path.join(__dirname, '../../uploads', link)
-                  if (fs.existsSync(imagePath)) {
-                    const imageBuffer = fs.readFileSync(imagePath)
-                    const resizedBuffer = await sharp(imageBuffer).resize({ width: 600 }).webp({ quality: 70 }).toBuffer()
-                    const base64Image = `data:image/webp;base64,${resizedBuffer.toString('base64')}`
-                    activity.evidenceBase64.push(base64Image)
-                  }
-                } catch (err) {
-                  console.error('Error al convertir imagen a base64:', err)
-                }
-              }
-            }
-          }
-        } catch {
-          activity.evidenceLinks = []
-          activity.evidenceBase64 = []
-        }
-      }
+      
     }
 
     // Devolvemos las nuevas variables en el objeto raíz para el template
