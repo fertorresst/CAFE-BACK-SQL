@@ -302,16 +302,84 @@ class ReportGenerator {
     // Variables globales del reporte (iguales para todo el documento)
     const careerFullName = `${career} - ${careerNames[career] || career}`
 
+    
     // Obtener actividades por alumno
     for (const student of students) {
       student.activities = await db.query(`
-        SELECT 
+        SELECT
           act_id, act_name, act_institution, act_date_start, act_date_end,
           act_hours, act_area, act_status, act_evidence
         FROM activities
         WHERE act_user_id = ? AND act_period_id = ?
       `, [student.use_id, periodId])
-      
+
+      // Procesar evidencias de cada actividad
+      for (const activity of student.activities) {
+        activity.evidenceLinks = []
+        activity.evidenceBase64 = []
+
+        if (!activity.act_evidence) continue
+
+        try {
+          const evidence = typeof activity.act_evidence === 'string'
+            ? JSON.parse(activity.act_evidence)
+            : activity.act_evidence
+
+          if (!evidence || typeof evidence !== 'object') continue
+
+          const links = Object.values(evidence)
+            .flat()
+            .filter(item => typeof item === 'string' && item.trim())
+            .slice(0, 2)
+
+          for (const link of links) {
+            try {
+              const relativePath = link.replace(/^\/+/, '')
+              const imagePath = path.resolve(
+                __dirname,
+                '../../uploads',
+                relativePath
+              )
+
+              const evidenceDir = path.resolve(
+                __dirname,
+                '../../uploads/evidence'
+              )
+
+              if (!imagePath.startsWith(evidenceDir + path.sep)) {
+                console.warn('Ruta de evidencia no válida:', link)
+                continue
+              }
+
+              if (!fs.existsSync(imagePath)) {
+                console.warn('No se encontró la evidencia:', imagePath)
+                continue
+              }
+
+              const imageBuffer = fs.readFileSync(imagePath)
+              const webpBuffer = await sharp(imageBuffer)
+                .resize({ width: 400, withoutEnlargement: true })
+                .webp({ quality: 70 })
+                .toBuffer()
+
+              activity.evidenceLinks.push(link)
+              activity.evidenceBase64.push(
+                `data:image/webp;base64,${webpBuffer.toString('base64')}`
+              )
+            } catch (imageError) {
+              console.error(
+                `Error procesando evidencia de actividad ${activity.act_id}:`,
+                imageError
+              )
+            }
+          }
+        } catch (evidenceError) {
+          console.error(
+            `Error interpretando evidencias de actividad ${activity.act_id}:`,
+            evidenceError
+          )
+        }
+      }
     }
 
     // Devolvemos las nuevas variables en el objeto raíz para el template
