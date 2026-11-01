@@ -57,6 +57,32 @@ const sendVerificationEmail = async (to, code) => {
 }
 
 /**
+ * Envía por correo el código para recuperar la contraseña.
+ * Igual que el de verificación: sin SMTP y fuera de producción, el código se imprime en la consola.
+ */
+const sendPasswordResetEmail = async (to, code) => {
+  const mailer = getTransporter()
+
+  if (!mailer) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('SMTP NO CONFIGURADO')
+    }
+    console.log(`[DEV] SMTP no configurado. Código para recuperar la contraseña de ${to}: ${code}`)
+    return
+  }
+
+  await mailer.sendMail({
+    from: process.env.SMTP_FROM || process.env.SMTP_USER,
+    to,
+    subject: 'Recuperar contraseña - MiCAFE',
+    text:
+      `Tu código para recuperar tu contraseña de MiCAFE es: ${code}\n\n` +
+      'Este código expirará en 10 minutos.\n\n' +
+      'Si tú no solicitaste este cambio, puedes ignorar este mensaje. Tu contraseña actual no se modificará.'
+  })
+}
+
+/**
  * Obtiene todos los usuarios registrados.
  * @route GET /users
  */
@@ -718,8 +744,177 @@ const updateProfile = async (req, res) => {
   }
 }
 
+// Mensaje único para quien pide recuperar su contraseña, exista o no el correo
+const PASSWORD_RESET_GENERIC_MESSAGE =
+  'SI EL CORREO ESTÁ REGISTRADO, RECIBIRÁS UN CÓDIGO EN TU CORREO INSTITUCIONAL'
+
+// Tiempo mínimo entre un código y el siguiente para el mismo correo (evita llenar la bandeja de alguien)
+const PASSWORD_RESET_RESEND_SECONDS = 60
+
+/**
+ * Envía un código de recuperación de contraseña al correo institucional del estudiante.
+ * La respuesta es la misma si el correo existe o no.
+ * @route POST /users/forgot-password
+ */
+const forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body
+
+    if (!email || typeof email !== 'string') {
+      return res.status(400).json({
+        success: false,
+        message: 'EL CORREO ELECTRÓNICO ES OBLIGATORIO'
+      })
+    }
+
+    const normalizedEmail = email.trim().toLowerCase()
+
+    if (!INSTITUTIONAL_EMAIL_REGEX.test(normalizedEmail)) {
+      return res.status(400).json({
+        success: false,
+        message: 'EL CORREO ELECTRÓNICO DEBE SER INSTITUCIONAL (@ugto.mx)'
+      })
+    }
+
+    const registered = await User.emailExists(normalizedEmail)
+
+    if (registered) {
+      const pending = await User.getPasswordReset(normalizedEmail)
+      const lastSent = pending && pending.pr_sent_at ? new Date(pending.pr_sent_at).getTime() : 0
+      const tooSoon = Date.now() - lastSent < PASSWORD_RESET_RESEND_SECONDS * 1000
+
+      // Si ya se mandó un código hace menos de un minuto, no se manda otro
+      if (!tooSoon) {
+        const code = crypto.randomInt(100000, 1000000).toString()
+        const codeHash = await bcrypt.hash(code, 10)
+        const now = Date.now()
+        const expiresAt = new Date(now + 10 * 60 * 1000)
+
+        await User.savePasswordReset(normalizedEmail, codeHash, expiresAt, new Date(now))
+
+        try {
+          await sendPasswordResetEmail(normalizedEmail, code)
+        } catch (mailError) {
+          // Si el correo no salió, se descarta el código para no dejar uno que nadie recibió
+          await User.deletePasswordReset(normalizedEmail)
+          throw mailError
+        }
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: PASSWORD_RESET_GENERIC_MESSAGE
+    })
+  } catch (err) {
+    console.error('Error al enviar código de recuperación:', err)
+
+    return res.status(500).json({
+      success: false,
+      message: 'NO SE PUDO ENVIAR EL CÓDIGO DE RECUPERACIÓN'
+    })
+  }
+}
+
+/**
+ * Cambia la contraseña de un estudiante con el código recibido por correo.
+ * @route POST /users/reset-password
+ */
+const resetPassword = async (req, res) => {
+  try {
+    const { email, code, newPassword } = req.body
+
+    if (!email || !code || !newPassword || typeof email !== 'string') {
+      return res.status(400).json({
+        success: false,
+        message: 'CORREO, CÓDIGO Y NUEVA CONTRASEÑA SON OBLIGATORIOS'
+      })
+    }
+
+    const normalizedEmail = email.trim().toLowerCase()
+
+    if (!INSTITUTIONAL_EMAIL_REGEX.test(normalizedEmail)) {
+      return res.status(400).json({
+        success: false,
+        message: 'EL CORREO ELECTRÓNICO DEBE SER INSTITUCIONAL (@ugto.mx)'
+      })
+    }
+
+    // La contraseña se revisa antes de gastar el código, para no hacerle perder un intento por un error de formato
+    if (!User.isStrongPassword(newPassword)) {
+      return res.status(400).json({
+        success: false,
+        message: 'LA CONTRASEÑA DEBE TENER AL MENOS 8 CARACTERES, UNA MAYÚSCULA, UNA MINÚSCULA, UN NÚMERO Y UN CARÁCTER ESPECIAL'
+      })
+    }
+
+    const pending = await User.getPasswordReset(normalizedEmail)
+
+    if (!pending) {
+      return res.status(400).json({
+        success: false,
+        message: 'NO HAY UNA SOLICITUD VIGENTE PARA ESTE CORREO. SOLICITA UN CÓDIGO NUEVO.'
+      })
+    }
+
+    if (new Date(pending.pr_expires_at).getTime() < Date.now()) {
+      await User.deletePasswordReset(normalizedEmail)
+
+      return res.status(400).json({
+        success: false,
+        message: 'EL CÓDIGO HA EXPIRADO. SOLICITA UNO NUEVO.'
+      })
+    }
+
+    // Máximo cinco intentos por código
+    if (pending.pr_attempts >= 5) {
+      return res.status(429).json({
+        success: false,
+        message: 'DEMASIADOS INTENTOS. SOLICITA UN NUEVO CÓDIGO.'
+      })
+    }
+
+    const codeIsValid = await bcrypt.compare(String(code).trim(), pending.pr_code_hash)
+
+    if (!codeIsValid) {
+      await User.incrementPasswordResetAttempts(normalizedEmail)
+
+      return res.status(400).json({
+        success: false,
+        message: 'CÓDIGO INCORRECTO'
+      })
+    }
+
+    const updated = await User.resetPasswordByEmail(normalizedEmail, newPassword)
+
+    // El código se borra para que no pueda usarse otra vez
+    await User.deletePasswordReset(normalizedEmail)
+
+    if (!updated) {
+      return res.status(400).json({
+        success: false,
+        message: 'NO SE PUDO ACTUALIZAR LA CONTRASEÑA'
+      })
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'CONTRASEÑA ACTUALIZADA CORRECTAMENTE. YA PUEDES INICIAR SESIÓN.'
+    })
+  } catch (err) {
+    console.error('Error al restablecer la contraseña:', err)
+
+    return res.status(500).json({
+      success: false,
+      message: 'ERROR AL RESTABLECER LA CONTRASEÑA'
+    })
+  }
+}
+
 module.exports = {
   getAllUsers,
+  forgotPassword,
+  resetPassword,
   createUser,
   createUserByAdmin,
   sendVerificationCode,

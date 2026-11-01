@@ -1022,6 +1022,150 @@ class User extends IUser {
 
     return result.affectedRows > 0
   }
+
+  /**
+   * Indica si una contraseña cumple la regla de fortaleza del sistema:
+   * mínimo 8 caracteres, una mayúscula, una minúscula, un número y un carácter especial.
+   * @param {string} password - Contraseña a revisar.
+   * @returns {boolean}
+   */
+  static isStrongPassword(password) {
+    return (
+      typeof password === "string" &&
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/.test(password)
+    )
+  }
+
+  /**
+   * Guarda o reemplaza el código de recuperación de contraseña de un correo.
+   * @param {string} email - Correo electrónico institucional.
+   * @param {string} codeHash - Hash del código (nunca el código en claro).
+   * @param {Date} expiresAt - Fecha de expiración del código.
+   * @param {Date} sentAt - Momento en que se envió el código.
+   * @returns {Promise<boolean>}
+   */
+  static async savePasswordReset(email, codeHash, expiresAt, sentAt) {
+    const normalizedEmail = email.trim().toLowerCase()
+
+    const query = `
+      INSERT INTO password_resets (
+        pr_email,
+        pr_code_hash,
+        pr_expires_at,
+        pr_sent_at,
+        pr_attempts
+      )
+      VALUES (?, ?, ?, ?, 0)
+      ON DUPLICATE KEY UPDATE
+        pr_code_hash = VALUES(pr_code_hash),
+        pr_expires_at = VALUES(pr_expires_at),
+        pr_sent_at = VALUES(pr_sent_at),
+        pr_attempts = 0
+    `
+
+    await db.query(query, [
+      normalizedEmail,
+      codeHash,
+      expiresAt,
+      sentAt,
+    ])
+
+    return true
+  }
+
+  /**
+   * Obtiene la solicitud de recuperación pendiente de un correo.
+   * @param {string} email - Correo electrónico institucional.
+   * @returns {Promise<Object|null>}
+   */
+  static async getPasswordReset(email) {
+    const normalizedEmail = email.trim().toLowerCase()
+
+    const query = `
+      SELECT
+        pr_id,
+        pr_email,
+        pr_code_hash,
+        pr_expires_at,
+        pr_sent_at,
+        pr_attempts
+      FROM password_resets
+      WHERE pr_email = ?
+      LIMIT 1
+    `
+
+    const [reset] = await db.query(query, [normalizedEmail])
+
+    return reset || null
+  }
+
+  /**
+   * Suma un intento fallido al código de recuperación de un correo.
+   * @param {string} email - Correo electrónico institucional.
+   * @returns {Promise<boolean>}
+   */
+  static async incrementPasswordResetAttempts(email) {
+    const normalizedEmail = email.trim().toLowerCase()
+
+    const query = `
+      UPDATE password_resets
+      SET pr_attempts = pr_attempts + 1
+      WHERE pr_email = ?
+    `
+
+    const result = await db.query(query, [normalizedEmail])
+
+    return result.affectedRows > 0
+  }
+
+  /**
+   * Elimina la solicitud de recuperación de un correo.
+   * @param {string} email - Correo electrónico institucional.
+   * @returns {Promise<boolean>}
+   */
+  static async deletePasswordReset(email) {
+    const normalizedEmail = email.trim().toLowerCase()
+
+    const query = `
+      DELETE FROM password_resets
+      WHERE pr_email = ?
+    `
+
+    const result = await db.query(query, [normalizedEmail])
+
+    return result.affectedRows > 0
+  }
+
+  /**
+   * Cambia la contraseña de un estudiante a partir de su correo.
+   * Solo debe llamarse después de comprobar el código de recuperación.
+   * @param {string} email - Correo electrónico institucional.
+   * @param {string} newPassword - Contraseña nueva en texto plano.
+   * @returns {Promise<boolean>} true si se actualizó una cuenta.
+   */
+  static async resetPasswordByEmail(email, newPassword) {
+    if (!User.isStrongPassword(newPassword)) {
+      throw new Error(
+        "LA CONTRASEÑA DEBE TENER AL MENOS 8 CARACTERES, UNA MAYÚSCULA, UNA MINÚSCULA, UN NÚMERO Y UN CARÁCTER ESPECIAL"
+      )
+    }
+
+    const normalizedEmail = email.trim().toLowerCase()
+    const hashedPassword = await bcrypt.hash(newPassword, 10)
+
+    const query = `
+      UPDATE users
+      SET use_password = ?
+      WHERE use_email = ?
+    `
+
+    const result = await db.query(query, [
+      hashedPassword,
+      normalizedEmail,
+    ])
+
+    return result.affectedRows > 0
+  }
 }
 
 module.exports = User

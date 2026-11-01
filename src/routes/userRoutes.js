@@ -11,6 +11,8 @@ const {
   createUserByAdmin,
   sendVerificationCode,
   verifyEmailCode,
+  forgotPassword,
+  resetPassword,
   updateUserPassword,
   deleteUser,
   getUserById,
@@ -55,6 +57,30 @@ const verifyCodeLimiter = rateLimit({
   }
 })
 
+// Límite para pedir códigos de recuperación de contraseña
+const forgotPasswordLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: 'DEMASIADAS SOLICITUDES DE RECUPERACIÓN. INTENTA NUEVAMENTE EN 15 MINUTOS.'
+  }
+})
+
+// Límite para comprobar el código y cambiar la contraseña (evita adivinar el código de 6 dígitos)
+const resetPasswordLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: 'DEMASIADOS INTENTOS. INTENTA NUEVAMENTE EN 15 MINUTOS.'
+  }
+})
+
 // Obtener todos los usuarios
 router.get("/get-all-users", adminAuthMiddleware, getAllUsers)
 
@@ -63,6 +89,10 @@ router.post("/send-verification-code", verificationLimiter, sendVerificationCode
 
 // Verificar código enviado al correo institucional
 router.post("/verify-email-code", verifyCodeLimiter, verifyEmailCode)
+
+// Recuperar contraseña: pide el código y luego cambia la contraseña con él
+router.post("/forgot-password", forgotPasswordLimiter, forgotPassword)
+router.post("/reset-password", resetPasswordLimiter, resetPassword)
 
 // Crear usuario (registro público: exige correo verificado)
 router.post("/create-user", registerLimiter, createUser)
