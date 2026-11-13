@@ -334,6 +334,42 @@ class Admin {
     };
   }
 
+
+  /**
+   * Permite que el administrador autenticado cambie su propia contraseña.
+   * Exige la contraseña actual y almacena la nueva mediante bcrypt.
+   */
+  static async changeOwnPassword(id, currentPassword, newPassword) {
+    if (!id) throw new Error("ID DEL ADMINISTRADOR ES REQUERIDO");
+    if (!currentPassword || !newPassword) {
+      throw new Error("DEBES PROPORCIONAR LA CONTRASEÑA ACTUAL Y LA NUEVA");
+    }
+
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/;
+    if (!passwordRegex.test(newPassword)) {
+      throw new Error(
+        "LA CONTRASEÑA DEBE TENER AL MENOS 8 CARACTERES, UNA MAYÚSCULA, UNA MINÚSCULA, UN NÚMERO Y UN CARÁCTER ESPECIAL"
+      );
+    }
+
+    const query = "SELECT adm_password FROM admins WHERE adm_id = ?";
+    const [admin] = await db.query(query, [id]);
+    if (!admin) throw new Error("NO SE ENCONTRÓ EL ADMINISTRADOR");
+
+    const currentIsValid = await bcrypt.compare(currentPassword, admin.adm_password);
+    if (!currentIsValid) throw new Error("LA CONTRASEÑA ACTUAL ES INCORRECTA");
+
+    const isSame = await bcrypt.compare(newPassword, admin.adm_password);
+    if (isSame) {
+      throw new Error("LA NUEVA CONTRASEÑA NO PUEDE SER IGUAL A LA ANTERIOR");
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    const updateQuery = "UPDATE admins SET adm_password = ? WHERE adm_id = ?";
+    const result = await db.query(updateQuery, [hashedPassword, id]);
+    return result.affectedRows > 0;
+  }
+
   /**
    * Actualiza el perfil de un administrador (campos limitados).
    * Solo permite actualizar: nombre, apellidos, teléfono, email.

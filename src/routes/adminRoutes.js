@@ -12,7 +12,8 @@ const {
   loginAdmin,
   getAdminById,
   getProfile,
-  updateProfile
+  updateProfile,
+  changeOwnPassword
 } = require("../controller/adminController")
 
 const { adminAuthMiddleware } = require('../auth/adminAuthMiddleware')
@@ -55,6 +56,7 @@ router.get('/me', adminAuthMiddleware, (req, res) => {
 })
 
 // Rutas de perfil del admin autenticado
+router.patch('/change-own-password', adminAuthMiddleware, changeOwnPassword);
 router.get('/profile', adminAuthMiddleware, getProfile);
 router.put('/update-profile', adminAuthMiddleware, updateProfile);
 
