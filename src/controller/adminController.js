@@ -246,6 +246,27 @@ const loginAdmin = async (req, res) => {
   }
 }
 
+
+/** Cambia la contraseña del administrador autenticado. */
+const changeOwnPassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword, confirmPassword } = req.body;
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      return res.status(400).json({ success: false, message: "TODOS LOS CAMPOS DE CONTRASEÑA SON OBLIGATORIOS" });
+    }
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({ success: false, message: "LA NUEVA CONTRASEÑA Y SU CONFIRMACIÓN NO COINCIDEN" });
+    }
+    const updated = await Admin.changeOwnPassword(req.admin.id, currentPassword, newPassword);
+    if (!updated) {
+      return res.status(400).json({ success: false, message: "NO SE PUDO ACTUALIZAR LA CONTRASEÑA" });
+    }
+    return res.status(200).json({ success: true, message: "CONTRASEÑA ACTUALIZADA CORRECTAMENTE" });
+  } catch (err) {
+    return res.status(400).json({ success: false, message: err.message });
+  }
+};
+
 /**
  * Obtiene el perfil del administrador autenticado.
  * @route GET /admins/profile
@@ -351,5 +372,6 @@ module.exports = {
   loginAdmin,
   getAdminById,
   getProfile,
-  updateProfile
+  updateProfile,
+  changeOwnPassword
 }
